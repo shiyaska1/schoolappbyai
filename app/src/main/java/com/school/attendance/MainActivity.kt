@@ -16,16 +16,21 @@ import androidx.navigation.compose.rememberNavController
 import com.school.attendance.data.AppPrefs
 import com.school.attendance.ui.theme.SchoolAttendanceTheme
 import com.school.attendance.ui.screens.AttendanceScreen
+import com.school.attendance.ui.screens.BusesScreen
 import com.school.attendance.ui.screens.DashboardScreen
 import com.school.attendance.ui.screens.HolidaysScreen
+import com.school.attendance.ui.screens.LicenseScreen
+import com.school.attendance.ui.screens.LiveLocationScreen
 import com.school.attendance.ui.screens.LoginScreen
 import com.school.attendance.ui.screens.MastersScreen
 import com.school.attendance.ui.screens.PayrollScreen
 import com.school.attendance.ui.screens.ReportsScreen
+import com.school.attendance.ui.screens.SelfAttendanceScreen
 import com.school.attendance.ui.screens.SettingsScreen
 import com.school.attendance.ui.screens.StudentsScreen
 import com.school.attendance.ui.screens.TeacherAttendanceScreen
 import com.school.attendance.ui.screens.TeachersScreen
+import com.school.attendance.data.License
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +57,10 @@ object Routes {
     const val REPORTS = "reports"
     const val PAYROLL = "payroll"
     const val SETTINGS = "settings"
+    const val BUSES = "buses"
+    const val LIVE_LOCATION = "liveLocation"
+    const val SELF_ATTENDANCE = "selfAttendance"
+    const val LICENSE = "license"
 }
 
 @Composable
@@ -59,9 +68,18 @@ fun AppNav() {
     val nav: NavHostController = rememberNavController()
     val context = LocalContext.current
     val prefs = remember(context) { AppPrefs(context) }
-    val start = if (prefs.loggedInTeacherId > 0) Routes.DASHBOARD else Routes.LOGIN
+    if (prefs.installDateMillis == 0L) prefs.installDateMillis = System.currentTimeMillis()
+    val licenseDue = remember { License.dueMilestone(prefs.installDateMillis) > prefs.licensedMilestone }
+    val start = when {
+        licenseDue -> Routes.LICENSE
+        prefs.loggedInTeacherId > 0 -> Routes.DASHBOARD
+        else -> Routes.LOGIN
+    }
 
     NavHost(navController = nav, startDestination = start) {
+        composable(Routes.LICENSE) {
+            LicenseScreen(onActivated = { nav.navigate(Routes.LOGIN) { popUpTo(Routes.LICENSE) { inclusive = true } } })
+        }
         composable(Routes.LOGIN) {
             LoginScreen(onLoggedIn = { nav.navigate(Routes.DASHBOARD) { popUpTo(Routes.LOGIN) { inclusive = true } } })
         }
@@ -82,6 +100,17 @@ fun AppNav() {
         composable(Routes.HOLIDAYS) { HolidaysScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.REPORTS) { ReportsScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.PAYROLL) { PayrollScreen(onBack = { nav.popBackStack() }) }
-        composable(Routes.SETTINGS) { SettingsScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.BUSES) { BusesScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.LIVE_LOCATION) { LiveLocationScreen(onBack = { nav.popBackStack() }, showHistory = true) }
+        composable(Routes.SELF_ATTENDANCE) { SelfAttendanceScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                onBack = { nav.popBackStack() },
+                onSignedOut = {
+                    prefs.clearSession()
+                    nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
+                }
+            )
+        }
     }
 }

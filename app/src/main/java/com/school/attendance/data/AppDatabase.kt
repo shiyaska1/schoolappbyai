@@ -6,8 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [Course::class, Division::class, Subject::class, Teacher::class, Student::class, AttendanceRecord::class, Holiday::class, TeacherAttendanceRecord::class],
-    version = 1,
+    entities = [Course::class, Division::class, Subject::class, Teacher::class, Student::class, AttendanceRecord::class, Holiday::class, TeacherAttendanceRecord::class, Message::class, LocationPing::class, Bus::class],
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -17,7 +17,11 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile private var INSTANCE: AppDatabase? = null
 
         fun get(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
+            // Schema is still moving during testing; destructive fallback (wipes + recreates)
+            // beats a hard crash on the next install over an older schema. Replace with real
+            // migrations once the schema is stable and there's real data to preserve.
             INSTANCE ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "school_attendance.db")
+                .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
         }
     }

@@ -1,5 +1,6 @@
 *.iml
 .gradle/
+.kotlin/
 /local.properties
 /.idea/
 .DS_Store
@@ -12,3 +13,7 @@
 # Signing keys — never commit
 *.jks
 *.keystore
+
+# Server runtime storage — created on first request, not source
+/server/data/
+/server/messages/

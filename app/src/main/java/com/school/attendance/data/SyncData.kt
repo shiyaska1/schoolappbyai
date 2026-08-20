@@ -7,11 +7,13 @@ import org.json.JSONObject
 data class MergeResult(
     var coursesAdded: Int = 0, var divisionsAdded: Int = 0, var subjectsAdded: Int = 0,
     var teachersAdded: Int = 0, var studentsAdded: Int = 0, var attendanceAdded: Int = 0,
-    var attendanceUpdated: Int = 0, var holidaysAdded: Int = 0
+    var attendanceUpdated: Int = 0, var holidaysAdded: Int = 0, var busesAdded: Int = 0,
+    var teacherAttendanceAdded: Int = 0, var teacherAttendanceUpdated: Int = 0
 ) {
     val summary: String
-        get() = "+$coursesAdded courses, +$divisionsAdded divisions, +$subjectsAdded subjects, " +
-            "+$teachersAdded teachers, +$studentsAdded students, +$attendanceAdded/$attendanceUpdated attendance, +$holidaysAdded holidays"
+        get() = "+$coursesAdded courses, +$divisionsAdded divisions, +$subjectsAdded subjects, +$busesAdded buses, " +
+            "+$teachersAdded teachers, +$studentsAdded students, +$attendanceAdded/$attendanceUpdated attendance, " +
+            "+$teacherAttendanceAdded/$teacherAttendanceUpdated staff attendance, +$holidaysAdded holidays"
 }
 
 /**
@@ -36,13 +38,16 @@ object AttendanceSync {
         val subjects = repo.subjectsOnce()
         val teachers = repo.teachersOnce()
         val students = repo.studentsOnce()
+        val buses = repo.busesOnce()
         val dao = AppDatabase.get(context).dao()
         val attendance = dao.attendanceInRange(0L, Long.MAX_VALUE)
+        val teacherAttendance = dao.teacherAttendanceForDay(0L, Long.MAX_VALUE)
         val holidays = dao.holidaysOnce()
 
         val courseName = courses.associate { it.id to it.name }
         val divisionName = divisions.associate { it.id to it.name }
         val teacherPhone = teachers.associate { it.id to it.phone }
+        val busNumber = buses.associate { it.id to it.busNumber }
         val studentInfo = students.associate { it.id to it }
 
         val root = JSONObject()
@@ -55,10 +60,12 @@ object AttendanceSync {
                 .put("divisionName", divisionName[it.divisionId] ?: "")
                 .put("teacherPhone", teacherPhone[it.teacherId] ?: "")
         }))
+        root.put("buses", JSONArray(buses.map { JSONObject().put("busNumber", it.busNumber).put("route", it.route) }))
         root.put("teachers", JSONArray(teachers.map {
             JSONObject().put("name", it.name).put("phone", it.phone).put("designation", it.designation)
                 .put("pin", it.pin).put("isAdmin", it.isAdmin).put("isTeachingStaff", it.isTeachingStaff)
-                .put("monthlySalary", it.monthlySalary)
+                .put("monthlySalary", it.monthlySalary).put("canSelfMarkAttendance", it.canSelfMarkAttendance)
+                .put("busNumber", busNumber[it.busId] ?: "")
         }))
         root.put("students", JSONArray(students.map { s ->
             JSONObject().put("name", s.name).put("rollNumber", s.rollNumber)
@@ -67,6 +74,8 @@ object AttendanceSync {
                 .put("guardianWhatsapp", s.guardianWhatsapp)
                 .put("gender", s.gender).put("address", s.address)
                 .put("admissionDateMillis", s.admissionDateMillis)
+                .put("busNumber", busNumber[s.busId] ?: "")
+                .put("username", s.username).put("password", s.password)
         }))
         root.put("attendance", JSONArray(attendance.map { a ->
             val s = studentInfo[a.studentId]
@@ -74,6 +83,12 @@ object AttendanceSync {
                 .put("divisionName", divisionName[a.divisionId] ?: "")
                 .put("dateMillis", a.dateMillis).put("session", a.session).put("present", a.present)
                 .put("markedByTeacherPhone", teacherPhone[a.markedByTeacherId] ?: "")
+                .put("deviceId", a.deviceId).put("updatedAtMillis", a.updatedAtMillis)
+        }))
+        root.put("teacherAttendance", JSONArray(teacherAttendance.map { a ->
+            JSONObject().put("teacherPhone", teacherPhone[a.teacherId] ?: "")
+                .put("dateMillis", a.dateMillis).put("present", a.present)
+                .put("markedByAdminPhone", teacherPhone[a.markedByAdminId] ?: "").put("selfMarked", a.selfMarked)
                 .put("deviceId", a.deviceId).put("updatedAtMillis", a.updatedAtMillis)
         }))
         root.put("holidays", JSONArray(holidays.map { h ->

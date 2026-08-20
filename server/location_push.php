@@ -1,0 +1,36 @@
+<?php
+// Live location push: a geo-tracked driver's phone POSTs a batch of queued points
+// {teacherPhone, points:[{lat,lng,speedMps,dateMillis}, ...]} — batched because the phone saves
+// points locally first and only flushes when it has a connection, so one push can carry several
+// minutes' worth caught up at once. Points are appended (not overwritten), building up that
+// driver's route for the day until an admin fetches the history (see location_pull.php).
+require_once __DIR__ . '/lib.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') send_json(['error' => 'POST only'], 405);
+
+$school = param('school', 'school');
+$body = read_json_body();
+$bus = safe_id($body['busNumber'] ?? '', '');
+$points = $body['points'] ?? [];
+if ($bus === '' || !is_array($points) || empty($points)) send_json(['error' => 'busNumber and points[] required'], 400);
+
+$dir = __DIR__ . '/locations';
+if (!is_dir($dir)) mkdir($dir, 0775, true);
+$file = "$dir/$school.json";
+
+$all = read_json_file($file, []);
+if (!isset($all[$phone]) || !is_array($all[$phone])) $all[$phone] = [];
+foreach ($points as $pt) {
+    $all[$phone][] = [
+        'lat' => (float)($pt['lat'] ?? 0), 'lng' => (float)($pt['lng'] ?? 0),
+        'speedMps' => (float)($pt['speedMps'] ?? 0), 'dateMillis' => (int)($pt['dateMillis'] ?? (microtime(true) * 1000)),
+    ];
+}
+// Weak/small-storage hosting: never let a route grow unbounded just because nobody fetched the
+// history — drop anything older than 3 days regardless of whether an admin ever asked for it.
+$cutoff = (microtime(true) - 3 * 24 * 60 * 60) * 1000;
+foreach ($all as $p => $route) {
+    $all[$p] = array_values(array_filter($route, fn($pt) => ($pt['dateMillis'] ?? 0) >= $cutoff));
+}
+write_json_file($file, $all);
+send_json(['ok' => true, 'accepted' => count($points)]);

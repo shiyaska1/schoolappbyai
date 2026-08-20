@@ -30,6 +30,29 @@ class Repository(context: Context) {
     val teachers: Flow<List<Teacher>> get() = dao.teachers()
     val students: Flow<List<Student>> get() = dao.students()
     val holidays: Flow<List<Holiday>> get() = dao.holidays()
+    val buses: Flow<List<Bus>> get() = dao.buses()
+
+    suspend fun upsertBus(b: Bus) = dao.upsertBus(b.copy(updatedAtMillis = System.currentTimeMillis()))
+    suspend fun deleteBus(b: Bus) = dao.deleteBus(b)
+    suspend fun busesOnce() = dao.busesOnce()
+
+    /** The bus number a student rides, resolved for display — never the driver's identity. */
+    suspend fun busNumberForStudent(studentId: Long): String? {
+        val student = dao.studentById(studentId) ?: return null
+        if (student.busId == 0L) return null
+        return dao.busesOnce().firstOrNull { it.id == student.busId }?.busNumber
+    }
+
+    /** The bus number a driver (Teacher.busId) is assigned to — what their phone pushes location under. */
+    suspend fun busNumberForDriver(teacherId: Long): String? {
+        val teacher = dao.teacherById(teacherId) ?: return null
+        if (teacher.busId == 0L) return null
+        return dao.busesOnce().firstOrNull { it.id == teacher.busId }?.busNumber
+    }
+
+    /** The driver currently assigned to a bus — used only to dial them (never shown as text) or,
+     * for admin/teacher, to label the fleet list. Null if no one's assigned. */
+    suspend fun driverForBus(busId: Long): Teacher? = dao.teachersOnce().firstOrNull { it.busId == busId }
 
     suspend fun upsertCourse(c: Course) = dao.upsertCourse(c.copy(updatedAtMillis = System.currentTimeMillis()))
     suspend fun deleteCourse(c: Course) = dao.deleteCourse(c)
@@ -51,6 +74,29 @@ class Repository(context: Context) {
 
     suspend fun upsertHoliday(h: Holiday) = dao.upsertHoliday(h.copy(dateMillis = startOfDay(h.dateMillis), updatedAtMillis = System.currentTimeMillis()))
     suspend fun deleteHoliday(h: Holiday) = dao.deleteHoliday(h)
+
+    /** Erases every table — used by a "Complete" restore, which replaces rather than merges. */
+    suspend fun wipeAll() = dao.wipeAll()
+
+    // ---- location pings ----
+    suspend fun recordLocationPing(teacherId: Long, lat: Double, lng: Double, speedMps: Float): Long =
+        dao.insertLocationPing(LocationPing(teacherId = teacherId, lat = lat, lng = lng, speedMps = speedMps, dateMillis = System.currentTimeMillis()))
+    suspend fun unpushedLocationPings() = dao.unpushedLocationPings()
+    suspend fun markLocationPingsPushed(ids: List<Long>) = dao.markLocationPingsPushed(ids)
+    suspend fun routeToday(teacherId: Long): List<LocationPing> = dao.routeFor(teacherId, startOfDay(System.currentTimeMillis()), endOfDay(System.currentTimeMillis()))
+
+    // ---- messages ----
+    fun messagesForStudent(studentId: Long) = dao.messagesForStudent(studentId)
+    fun broadcastsForDivision(divisionId: Long) = dao.broadcastsForDivision(divisionId)
+    fun allMessages() = dao.allMessages()
+
+    suspend fun sendMessage(fromRole: String, fromTeacherId: Long, studentId: Long, divisionId: Long, body: String, deviceId: String) {
+        dao.insertMessage(Message(
+            dateMillis = System.currentTimeMillis(), fromRole = fromRole, fromTeacherId = fromTeacherId,
+            studentId = studentId, divisionId = divisionId, body = body, deviceId = deviceId,
+            updatedAtMillis = System.currentTimeMillis()
+        ))
+    }
 
     /** True if this date is a working day for [divisionId] — not a weekly-off, not a holiday. */
     suspend fun isWorkingDay(dateMillis: Long, divisionId: Long): Boolean {
@@ -116,6 +162,22 @@ class Repository(context: Context) {
             TeacherAttendanceRecord(dateMillis = day, teacherId = teacherId, present = present, markedByAdminId = adminId, deviceId = deviceId, updatedAtMillis = now)
         }
         dao.saveTeacherAttendanceForDay(day, endOfDay(dateMillis), records)
+    }
+
+    /** A teacher marking their own attendance (geo-fenced) — replaces only this teacher's row for
+     * today, unlike [saveTeacherAttendance] which replaces the whole day (admin marking everyone). */
+    suspend fun saveSelfAttendance(teacherId: Long, deviceId: String, latitude: Double, longitude: Double) {
+        val day = startOfDay(System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        dao.saveOneTeacherAttendanceForDay(
+            teacherId, day, endOfDay(now),
+            TeacherAttendanceRecord(dateMillis = day, teacherId = teacherId, present = true, selfMarked = true, latitude = latitude, longitude = longitude, deviceId = deviceId, updatedAtMillis = now)
+        )
+    }
+
+    suspend fun alreadySelfMarkedToday(teacherId: Long): Boolean {
+        val day = startOfDay(System.currentTimeMillis())
+        return dao.teacherAttendanceFor(teacherId, day, endOfDay(day)).any { it.selfMarked }
     }
 
     suspend fun teacherSummary(teacherId: Long, from: Long, to: Long): AttendanceSummary {

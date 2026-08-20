@@ -29,6 +29,14 @@ data class Subject(
     val updatedAtMillis: Long = 0
 )
 
+@Entity(tableName = "buses")
+data class Bus(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val busNumber: String,
+    val route: String = "",
+    val updatedAtMillis: Long = 0
+)
+
 @Entity(tableName = "teachers")
 data class Teacher(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -46,6 +54,15 @@ data class Teacher(
     /** Admin teachers see masters (courses/divisions/subjects/teachers) and Settings; regular
      * teachers only see attendance marking + reports for the subjects/divisions assigned to them. */
     val isAdmin: Boolean = false,
+    /** Only staff with this on see "My Attendance" (self, geo-fenced) — set per person in this
+     * register, not a global toggle, since not every role should be able to self-mark. */
+    val canSelfMarkAttendance: Boolean = false,
+    /** The bus this person drives — only meaningful when [designation] is "Driver". Location
+     * tracking is looked up by bus (so parents see a bus number, never the driver's identity). */
+    val busId: Long = 0,
+    /** Admin-granted, per-person: can this staff member open the bus-tracking screen at all?
+     * Independent of [busId] — a driver doesn't need this on for their own bus to be tracked. */
+    val canViewBusLocation: Boolean = false,
     val active: Boolean = true,
     val updatedAtMillis: Long = 0
 )
@@ -65,6 +82,13 @@ data class Student(
     val address: String = "",
     val photoPath: String = "",
     val admissionDateMillis: Long = 0,
+    /** Which bus this student rides, if any — a parent sees only the bus number/route from this,
+     * never the driver's identity (see [Teacher.busId] and the location pull flow). */
+    val busId: Long = 0,
+    /** Optional app login for the student/parent (a future portal) — auto-generated when blank,
+     * not something the admin has to think up. */
+    val username: String = "",
+    val password: String = "",
     val active: Boolean = true,
     val updatedAtMillis: Long = 0
 )
@@ -94,9 +118,31 @@ data class TeacherAttendanceRecord(
     val dateMillis: Long,
     val teacherId: Long,
     val present: Boolean = true,
+    /** 0 when [selfMarked] is true — the teacher marked themself, not an admin. */
     val markedByAdminId: Long = 0,
+    /** True when the teacher marked their own attendance (geo-fenced) rather than an admin marking it. */
+    val selfMarked: Boolean = false,
+    /** Captured only for a self-mark, so a flagged mark can be checked later against the school's geo-fence. */
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val deviceId: String = "",
     val updatedAtMillis: Long = 0
+)
+
+/** One GPS fix from a geo-tracked staff member (driver), saved locally the instant it's captured
+ * so nothing is lost if there's no signal — [pushed] flips to true once it's made it to the
+ * server, and a background flush retries whatever's still false when connectivity returns. The
+ * accumulated rows are also this device's own local route history. */
+@Entity(tableName = "location_pings")
+data class LocationPing(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val teacherId: Long,
+    val lat: Double,
+    val lng: Double,
+    /** Meters/second from the location fix, 0 if the provider didn't supply one. */
+    val speedMps: Float = 0f,
+    val dateMillis: Long,
+    val pushed: Boolean = false
 )
 
 enum class AttendanceMode { ONCE, TWICE }
@@ -116,4 +162,28 @@ data class Holiday(
     /** 0 = whole school; otherwise only this one division is off (e.g. a class picnic/exam day). */
     val divisionId: Long = 0,
     val updatedAtMillis: Long = 0
+)
+
+/** A message between a parent and their child's teachers, or a school-wide/division broadcast.
+ * Synced the same way as everything else (push/pull) rather than a separate mailbox protocol —
+ * that keeps it working with any server that already speaks the export/import JSON, and re-pulling
+ * is naturally harmless since [com.school.attendance.data.AttendanceSync] dedupes what's already local. */
+@Entity(tableName = "messages")
+data class Message(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val dateMillis: Long,
+    /** "SCHOOL" (admin broadcast to a division or the whole school), "TEACHER", or "PARENT". */
+    val fromRole: String,
+    /** Set when [fromRole] is TEACHER or SCHOOL. */
+    val fromTeacherId: Long = 0,
+    /** The thread this belongs to: a specific student's parent<->teacher conversation. 0 with a
+     * [fromRole] of SCHOOL means a broadcast (to [divisionId], or the whole school if that's 0 too). */
+    val studentId: Long = 0,
+    val divisionId: Long = 0,
+    val body: String,
+    val deviceId: String = "",
+    val updatedAtMillis: Long = 0,
+    /** Local-only bookkeeping (never synced) — true once [com.school.attendance.sync.MessageSync]
+     * has successfully pushed this message, so it isn't re-sent on the next push cycle. */
+    val pushed: Boolean = false
 )

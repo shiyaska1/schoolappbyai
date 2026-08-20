@@ -98,6 +98,15 @@ interface SchoolDao {
         insertTeacherAttendance(records)
     }
 
+    @Query("DELETE FROM teacher_attendance_records WHERE teacherId = :teacherId AND dateMillis BETWEEN :dayStart AND :dayEnd")
+    suspend fun clearOneTeacherAttendanceForDay(teacherId: Long, dayStart: Long, dayEnd: Long)
+
+    @androidx.room.Transaction
+    suspend fun saveOneTeacherAttendanceForDay(teacherId: Long, dayStart: Long, dayEnd: Long, record: TeacherAttendanceRecord) {
+        clearOneTeacherAttendanceForDay(teacherId, dayStart, dayEnd)
+        insertTeacherAttendance(listOf(record))
+    }
+
     // ---- holidays ----
     @Query("SELECT * FROM holidays ORDER BY dateMillis") fun holidays(): Flow<List<Holiday>>
     @Query("SELECT * FROM holidays ORDER BY dateMillis") suspend fun holidaysOnce(): List<Holiday>
@@ -106,4 +115,48 @@ interface SchoolDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertHoliday(h: Holiday): Long
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertHolidays(h: List<Holiday>)
     @Delete suspend fun deleteHoliday(h: Holiday)
+
+    // ---- messages ----
+    @Query("SELECT * FROM messages WHERE studentId = :studentId ORDER BY dateMillis") fun messagesForStudent(studentId: Long): Flow<List<Message>>
+    @Query("SELECT * FROM messages WHERE fromRole = 'SCHOOL' AND studentId = 0 AND (divisionId = 0 OR divisionId = :divisionId) ORDER BY dateMillis DESC")
+    fun broadcastsForDivision(divisionId: Long): Flow<List<Message>>
+    @Query("SELECT * FROM messages ORDER BY dateMillis DESC") fun allMessages(): Flow<List<Message>>
+    @Query("SELECT * FROM messages WHERE pushed = 0") suspend fun unpushedMessages(): List<Message>
+    @Query("UPDATE messages SET pushed = 1 WHERE id IN (:ids)") suspend fun markMessagesPushed(ids: List<Long>)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertMessage(m: Message): Long
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertMessages(m: List<Message>)
+    @Query("SELECT * FROM messages") suspend fun messagesOnce(): List<Message>
+
+    // ---- buses ----
+    @Query("SELECT * FROM buses ORDER BY busNumber COLLATE NOCASE") fun buses(): Flow<List<Bus>>
+    @Query("SELECT * FROM buses") suspend fun busesOnce(): List<Bus>
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertBus(b: Bus): Long
+    @Delete suspend fun deleteBus(b: Bus)
+    @Query("DELETE FROM buses") suspend fun wipeBuses()
+
+    // ---- location pings (driver GPS tracking) ----
+    @Insert suspend fun insertLocationPing(p: LocationPing): Long
+    @Query("SELECT * FROM location_pings WHERE pushed = 0 ORDER BY dateMillis") suspend fun unpushedLocationPings(): List<LocationPing>
+    @Query("UPDATE location_pings SET pushed = 1 WHERE id IN (:ids)") suspend fun markLocationPingsPushed(ids: List<Long>)
+    @Query("SELECT * FROM location_pings WHERE teacherId = :teacherId AND dateMillis BETWEEN :from AND :to ORDER BY dateMillis")
+    suspend fun routeFor(teacherId: Long, from: Long, to: Long): List<LocationPing>
+    @Query("DELETE FROM location_pings WHERE dateMillis < :beforeMillis") suspend fun pruneLocationPings(beforeMillis: Long)
+
+    // ---- wipe (Complete restore starts from empty) ----
+    @Query("DELETE FROM courses") suspend fun wipeCourses()
+    @Query("DELETE FROM divisions") suspend fun wipeDivisions()
+    @Query("DELETE FROM subjects") suspend fun wipeSubjects()
+    @Query("DELETE FROM teachers") suspend fun wipeTeachers()
+    @Query("DELETE FROM students") suspend fun wipeStudents()
+    @Query("DELETE FROM attendance_records") suspend fun wipeAttendance()
+    @Query("DELETE FROM teacher_attendance_records") suspend fun wipeTeacherAttendance()
+    @Query("DELETE FROM holidays") suspend fun wipeHolidays()
+
+    @Query("DELETE FROM messages") suspend fun wipeMessages()
+
+    @androidx.room.Transaction
+    suspend fun wipeAll() {
+        wipeAttendance(); wipeTeacherAttendance(); wipeHolidays(); wipeMessages()
+        wipeStudents(); wipeSubjects(); wipeDivisions(); wipeTeachers(); wipeCourses(); wipeBuses()
+    }
 }

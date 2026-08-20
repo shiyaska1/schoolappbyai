@@ -59,6 +59,7 @@ import java.util.Locale
 class AttendanceViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = Repository(app)
     private val prefs = AppPrefs(app)
+    val courses = repo.courses.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val divisions = repo.divisions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val roster = MutableStateFlow<List<Student>>(emptyList())
     val message = MutableStateFlow<String?>(null)
@@ -99,17 +100,21 @@ class AttendanceViewModel(app: Application) : AndroidViewModel(app) {
 @Composable
 fun AttendanceScreen(onBack: () -> Unit, vm: AttendanceViewModel = viewModel()) {
     val context = LocalContext.current
+    val courses by vm.courses.collectAsState()
     val divisions by vm.divisions.collectAsState()
     val roster by vm.roster.collectAsState()
     val message by vm.message.collectAsState()
     val isWorkingDay by vm.isWorkingDay.collectAsState()
 
+    var courseId by remember { mutableStateOf(0L) }
     var divisionId by remember { mutableStateOf(0L) }
     var session by remember { mutableStateOf("FULL") }
     var date by remember { mutableStateOf(System.currentTimeMillis()) }
+    var courseMenu by remember { mutableStateOf(false) }
     var divMenu by remember { mutableStateOf(false) }
     val marks = remember { mutableStateMapOf<Long, Boolean>() }
     var loaded by remember { mutableStateOf(false) }
+    val divisionsInCourse = divisions.filter { it.courseId == courseId }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Mark Attendance") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)) }) { pad ->
