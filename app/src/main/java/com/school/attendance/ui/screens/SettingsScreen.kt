@@ -124,6 +124,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit) {
         prefs.schoolLongitude = schoolLng.toDoubleOrNull() ?: 0.0
         prefs.geoFenceRadiusMeters = geoRadius.toIntOrNull() ?: 100
         if (autoSync) CloudSyncManager.startAuto(context, prefs.cloudAutoSyncIntervalSec * 1000L) else CloudSyncManager.stopAuto()
+        backupStatus = "Settings saved"
     }
 
     val importSettingsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->

@@ -40,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -199,11 +200,14 @@ private fun StudentDialog(initial: Student, divisions: List<Division>, courses: 
         if (uri != null) PhotoUtil.importCompressed(context, uri, "student_${initial.id}_${System.currentTimeMillis()}")?.let { photoPath = it }
     }
 
+    val scrollState = rememberScrollState()
+    LaunchedEffect(showMore) { if (showMore) scrollState.animateScrollTo(scrollState.maxValue) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial.id == 0L) "New student" else "Edit student") },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+            Column(Modifier.verticalScroll(scrollState)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = roll, onValueChange = { roll = it }, label = { Text("Roll number") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 Box(Modifier.padding(top = 8.dp)) {

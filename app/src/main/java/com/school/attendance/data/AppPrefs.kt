@@ -133,6 +133,12 @@ class AppPrefs(context: Context) {
         get() = p.getBoolean("geo_tracking_enabled", false)
         set(v) { p.edit().putBoolean("geo_tracking_enabled", v).apply() }
 
+    /** When this device (a driver's phone) last successfully pushed a location point — shown on
+     * the driver's own dashboard so they can confirm sync is actually working, not just "on". */
+    var lastLocationPushAt: Long
+        get() = p.getLong("last_location_push_at", 0L)
+        set(v) { p.edit().putLong("last_location_push_at", v).apply() }
+
     // ---- licensing / trial (see data/License.kt) ----
     var installDateMillis: Long
         get() = p.getLong("install_date", 0L)
