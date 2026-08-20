@@ -29,12 +29,14 @@ import com.school.attendance.ui.screens.GradeScaleScreen
 import com.school.attendance.ui.screens.HolidaysScreen
 import com.school.attendance.ui.screens.JoinScreen
 import com.school.attendance.ui.screens.JournalEntryScreen
+import com.school.attendance.ui.screens.LedgerScreen
 import com.school.attendance.ui.screens.LicenseScreen
 import com.school.attendance.ui.screens.LiveLocationScreen
 import com.school.attendance.ui.screens.LoginScreen
 import com.school.attendance.ui.screens.MarkEntryScreen
 import com.school.attendance.ui.screens.MastersScreen
 import com.school.attendance.ui.screens.MessagesScreen
+import com.school.attendance.ui.screens.OutstandingScreen
 import com.school.attendance.ui.screens.ParentDashboardScreen
 import com.school.attendance.ui.screens.PayrollScreen
 import com.school.attendance.ui.screens.PurchasesScreen
@@ -107,6 +109,8 @@ object Routes {
     const val MARK_ENTRY = "markEntry"
     const val GRADE_SCALE = "gradeScale"
     const val REPORT_CARDS = "reportCards"
+    const val LEDGER = "ledger"
+    const val OUTSTANDING = "outstanding"
 }
 
 @Composable
@@ -193,6 +197,8 @@ fun AppNav() {
         composable(Routes.MARK_ENTRY) { MarkEntryScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.GRADE_SCALE) { GradeScaleScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.REPORT_CARDS) { ReportCardScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.LEDGER) { LedgerScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.OUTSTANDING) { OutstandingScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { nav.popBackStack() },

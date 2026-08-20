@@ -184,4 +184,32 @@ object AccountingEngine {
 
     fun dayBookOf(postings: List<Posting>, from: Long, to: Long): List<Posting> =
         postings.filter { it.date in from..to }.sortedWith(compareBy({ it.date }, { it.vch }))
+
+    /** Every distinct account name postings have been made to — includes real [AccountHead]s and
+     * ad-hoc party names (a student, a supplier) that only exist as posting heads, so a ledger
+     * lookup works for either without needing the party pre-registered as a head. */
+    fun accountNames(postings: List<Posting>, groupName: String? = null): List<String> =
+        postings.filter { (groupName == null || it.group == groupName) && it.head.isNotBlank() }
+            .map { it.head }.distinct().sortedBy { it.lowercase() }
+
+    data class LedgerRow(val date: Long, val particulars: String, val vch: String, val debit: Double, val credit: Double, val balance: Double)
+    data class LedgerResult(val opening: Double, val rows: List<LedgerRow>, val closing: Double)
+
+    /** One account's running-balance statement: everything before [from] collapses into an opening
+     * balance, then a signed running total walks the rows in [from]..[to] (oldest first). */
+    fun ledgerOf(postings: List<Posting>, head: String, from: Long, to: Long): LedgerResult {
+        val mine = postings.filter { it.head.equals(head, ignoreCase = true) }
+        val opening = mine.filter { it.date < from }.sumOf { it.debit - it.credit }
+        var running = opening
+        val rows = mine.filter { it.date in from..to }.sortedBy { it.date }.map { p ->
+            running += p.debit - p.credit
+            LedgerRow(p.date, p.particulars, p.vch, p.debit, p.credit, running)
+        }
+        return LedgerResult(opening, rows, running)
+    }
+
+    /** Every party in [groupName] (typically "Sundry Creditors" or "Sundry Debtors") with a
+     * non-zero balance as of [to] — the outstanding-payables/receivables list. */
+    fun outstandingOf(postings: List<Posting>, groupName: String, to: Long): List<HeadBalance> =
+        trialBalanceOf(postings, to).filter { it.group == groupName }.sortedByDescending { it.debit + it.credit }
 }

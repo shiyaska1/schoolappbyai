@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocationOn
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Receipt
@@ -210,7 +212,9 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Expenses", Icons.Filled.MoneyOff, Routes.EXPENSES, "Accounts/Transactions"),
         Tile("Purchases", Icons.Filled.ShoppingCart, Routes.PURCHASES, "Accounts/Transactions"),
         Tile("Journal / Contra", Icons.Filled.Book, Routes.JOURNAL, "Accounts/Transactions"),
-        Tile("Financial Reports", Icons.Filled.BarChart, Routes.FINANCIAL_REPORTS, "Accounts/Reports")
+        Tile("Financial Reports", Icons.Filled.BarChart, Routes.FINANCIAL_REPORTS, "Accounts/Reports"),
+        Tile("Ledger", Icons.Filled.ListAlt, Routes.LEDGER, "Accounts/Reports"),
+        Tile("Outstanding", Icons.Filled.PendingActions, Routes.OUTSTANDING, "Accounts/Reports")
     ) else listOfNotNull(
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         if (canSelfMark) Tile("My Attendance", Icons.Filled.MyLocation, Routes.SELF_ATTENDANCE, "Transactions") else null,

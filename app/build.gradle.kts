@@ -10,7 +10,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.school.attendance"
+        applicationId = "com.shiyaska.schoolmanagement"
         minSdk = 26
         targetSdk = 36
         // CI sets VERSION_CODE per build (see .github/workflows/build.yml and release.yml) so every
