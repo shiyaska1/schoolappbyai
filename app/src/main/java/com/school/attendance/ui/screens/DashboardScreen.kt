@@ -208,7 +208,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Messages", Icons.Filled.Message, Routes.MESSAGES, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports")
     )
-    val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, true) }; ACCOUNTS_SUB_ORDER.forEach { put(it, true) } } }
+    val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, false) }; ACCOUNTS_SUB_ORDER.forEach { put(it, false) } } }
 
     Scaffold(topBar = {
         TopAppBar(
