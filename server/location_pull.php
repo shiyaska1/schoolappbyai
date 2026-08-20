@@ -7,22 +7,22 @@
 //   Meant for admin/teacher use only; the app itself is what enforces who can request it.
 require_once __DIR__ . '/lib.php';
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') send_json(['error' => 'GET only'], 405);
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') send_json(array('error' => 'GET only'), 405);
 
 $school = param('school', 'school');
-$bus = safe_id($_GET['bus'] ?? '', '');
-$mode = ($_GET['mode'] ?? 'latest') === 'history' ? 'history' : 'latest';
-if ($bus === '') send_json(['error' => 'bus required'], 400);
+$bus = safe_id(isset($_GET['bus']) ? $_GET['bus'] : '', '');
+$mode = (isset($_GET['mode']) ? $_GET['mode'] : 'latest') === 'history' ? 'history' : 'latest';
+if ($bus === '') send_json(array('error' => 'bus required'), 400);
 
 $file = __DIR__ . "/locations/$school.json";
-$all = read_json_file($file, []);
-$route = $all[$bus] ?? [];
-if (empty($route)) send_json(['error' => 'no location for this bus yet'], 404);
+$all = read_json_file($file, array());
+$route = isset($all[$bus]) ? $all[$bus] : array();
+if (empty($route)) send_json(array('error' => 'no location for this bus yet'), 404);
 
 if ($mode === 'latest') {
     send_json(end($route));
 } else {
-    $all[$bus] = [];
+    $all[$bus] = array();
     write_json_file($file, $all);
     send_json($route);
 }

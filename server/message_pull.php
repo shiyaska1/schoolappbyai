@@ -14,18 +14,18 @@ require_once __DIR__ . '/lib.php';
 $school = param('school', 'school');
 $device = param('device', 'device');
 $path = messages_dir() . "/$school.json";
-$pool = read_json_file($path, []);
+$pool = read_json_file($path, array());
 
-$mine = array_values(array_filter($pool, function ($m) use ($device) { return ($m['originDevice'] ?? '') === $device; }));
-$forMe = array_values(array_filter($pool, function ($m) use ($device) { return ($m['originDevice'] ?? '') !== $device; }));
+$mine = array_values(array_filter($pool, function ($m) use ($device) { return (isset($m['originDevice']) ? $m['originDevice'] : '') === $device; }));
+$forMe = array_values(array_filter($pool, function ($m) use ($device) { return (isset($m['originDevice']) ? $m['originDevice'] : '') !== $device; }));
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    if (empty($forMe)) send_json([]);
+    if (empty($forMe)) send_json(array());
     send_json($forMe);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     // Keep only this device's own outgoing messages (so a re-push doesn't duplicate); drop the rest.
     write_json_file($path, $mine);
-    send_json(['ok' => true, 'cleared' => count($forMe)]);
+    send_json(array('ok' => true, 'cleared' => count($forMe)));
 } else {
-    send_json(['error' => 'GET or DELETE only'], 405);
+    send_json(array('error' => 'GET or DELETE only'), 405);
 }

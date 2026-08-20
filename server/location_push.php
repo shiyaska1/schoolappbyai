@@ -6,31 +6,32 @@
 // driver's route for the day until an admin fetches the history (see location_pull.php).
 require_once __DIR__ . '/lib.php';
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') send_json(['error' => 'POST only'], 405);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') send_json(array('error' => 'POST only'), 405);
 
 $school = param('school', 'school');
 $body = read_json_body();
-$bus = safe_id($body['busNumber'] ?? '', '');
-$points = $body['points'] ?? [];
-if ($bus === '' || !is_array($points) || empty($points)) send_json(['error' => 'busNumber and points[] required'], 400);
+$bus = safe_id(isset($body['busNumber']) ? $body['busNumber'] : '', '');
+$points = isset($body['points']) ? $body['points'] : array();
+if ($bus === '' || !is_array($points) || empty($points)) send_json(array('error' => 'busNumber and points[] required'), 400);
 
 $dir = __DIR__ . '/locations';
 if (!is_dir($dir)) mkdir($dir, 0775, true);
 $file = "$dir/$school.json";
 
-$all = read_json_file($file, []);
-if (!isset($all[$bus]) || !is_array($all[$bus])) $all[$bus] = [];
+$all = read_json_file($file, array());
+if (!isset($all[$bus]) || !is_array($all[$bus])) $all[$bus] = array();
 foreach ($points as $pt) {
-    $all[$bus][] = [
-        'lat' => (float)($pt['lat'] ?? 0), 'lng' => (float)($pt['lng'] ?? 0),
-        'speedMps' => (float)($pt['speedMps'] ?? 0), 'dateMillis' => (int)($pt['dateMillis'] ?? (microtime(true) * 1000)),
-    ];
+    $all[$bus][] = array(
+        'lat' => (float)(isset($pt['lat']) ? $pt['lat'] : 0), 'lng' => (float)(isset($pt['lng']) ? $pt['lng'] : 0),
+        'speedMps' => (float)(isset($pt['speedMps']) ? $pt['speedMps'] : 0),
+        'dateMillis' => (int)(isset($pt['dateMillis']) ? $pt['dateMillis'] : (microtime(true) * 1000)),
+    );
 }
 // Weak/small-storage hosting: never let a route grow unbounded just because nobody fetched the
 // history — drop anything older than 3 days regardless of whether an admin ever asked for it.
 $cutoff = (microtime(true) - 3 * 24 * 60 * 60) * 1000;
 foreach ($all as $p => $route) {
-    $all[$p] = array_values(array_filter($route, function ($pt) use ($cutoff) { return ($pt['dateMillis'] ?? 0) >= $cutoff; }));
+    $all[$p] = array_values(array_filter($route, function ($pt) use ($cutoff) { return (isset($pt['dateMillis']) ? $pt['dateMillis'] : 0) >= $cutoff; }));
 }
 write_json_file($file, $all);
-send_json(['ok' => true, 'accepted' => count($points)]);
+send_json(array('ok' => true, 'accepted' => count($points)));
