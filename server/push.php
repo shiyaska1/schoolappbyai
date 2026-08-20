@@ -24,6 +24,7 @@ $defaults = array(
     'accountGroups' => array(), 'accountHeads' => array(), 'costCenters' => array(),
     'journalEntries' => array(), 'receipts' => array(), 'expenses' => array(),
     'customers' => array(), 'suppliers' => array(), 'purchases' => array(),
+    'exams' => array(), 'examMarks' => array(), 'gradeBands' => array(),
 );
 
 $path = data_dir() . "/$school.json";
@@ -48,6 +49,9 @@ $merged = array(
     'customers' => merge_rows(arr($existing, 'customers'), arr($incoming, 'customers'), array('name', 'phone')),
     'suppliers' => merge_rows(arr($existing, 'suppliers'), arr($incoming, 'suppliers'), array('name', 'phone')),
     'purchases' => merge_rows(arr($existing, 'purchases'), arr($incoming, 'purchases'), array('purchaseNo')),
+    'exams' => merge_rows(arr($existing, 'exams'), arr($incoming, 'exams'), array('name', 'divisionName')),
+    'examMarks' => merge_rows(arr($existing, 'examMarks'), arr($incoming, 'examMarks'), array('examName', 'divisionName', 'subjectName', 'studentRoll', 'studentName')),
+    'gradeBands' => merge_rows(arr($existing, 'gradeBands'), arr($incoming, 'gradeBands'), array('grade')),
 );
 
 write_json_file($path, $merged);

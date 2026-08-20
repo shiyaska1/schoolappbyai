@@ -31,6 +31,9 @@ class Repository(context: Context) {
     val students: Flow<List<Student>> get() = dao.students()
     val holidays: Flow<List<Holiday>> get() = dao.holidays()
     val buses: Flow<List<Bus>> get() = dao.buses()
+    val exams: Flow<List<Exam>> get() = dao.exams()
+    val examMarks: Flow<List<ExamMark>> get() = dao.examMarks()
+    val gradeBands: Flow<List<GradeBand>> get() = dao.gradeBands()
 
     suspend fun upsertBus(b: Bus) = dao.upsertBus(b.copy(updatedAtMillis = System.currentTimeMillis()))
     suspend fun deleteBus(b: Bus) = dao.deleteBus(b)
@@ -76,6 +79,30 @@ class Repository(context: Context) {
 
     suspend fun upsertHoliday(h: Holiday) = dao.upsertHoliday(h.copy(dateMillis = startOfDay(h.dateMillis), updatedAtMillis = System.currentTimeMillis()))
     suspend fun deleteHoliday(h: Holiday) = dao.deleteHoliday(h)
+
+    // ---- exams ----
+    suspend fun upsertExam(e: Exam) = dao.upsertExam(e.copy(updatedAtMillis = System.currentTimeMillis()))
+    suspend fun deleteExam(e: Exam) = dao.deleteExam(e)
+    suspend fun examsOnce() = dao.examsOnce()
+    suspend fun examMarksFor(examId: Long, subjectId: Long) = dao.examMarksFor(examId, subjectId)
+    suspend fun examMarksOnce() = dao.examMarksOnce()
+
+    suspend fun saveExamMarks(examId: Long, subjectId: Long, teacherId: Long, deviceId: String, marks: Map<Long, Pair<Double, Boolean>>) {
+        val now = System.currentTimeMillis()
+        val rows = marks.map { (studentId, m) ->
+            ExamMark(
+                examId = examId, studentId = studentId, subjectId = subjectId,
+                marksObtained = m.first, absent = m.second, enteredByTeacherId = teacherId,
+                deviceId = deviceId, updatedAtMillis = now
+            )
+        }
+        dao.saveExamMarksFor(examId, subjectId, rows)
+    }
+
+    // ---- grade bands ----
+    suspend fun upsertGradeBand(g: GradeBand) = dao.upsertGradeBand(g.copy(updatedAtMillis = System.currentTimeMillis()))
+    suspend fun deleteGradeBand(g: GradeBand) = dao.deleteGradeBand(g)
+    suspend fun gradeBandsOnce() = dao.gradeBandsOnce()
 
     /** Erases every table — used by a "Complete" restore, which replaces rather than merges. */
     suspend fun wipeAll() = dao.wipeAll()

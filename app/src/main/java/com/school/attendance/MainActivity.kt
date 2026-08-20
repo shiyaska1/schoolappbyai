@@ -22,20 +22,24 @@ import com.school.attendance.ui.screens.BusesScreen
 import com.school.attendance.ui.screens.CredentialsScreen
 import com.school.attendance.ui.screens.CustomersScreen
 import com.school.attendance.ui.screens.DashboardScreen
+import com.school.attendance.ui.screens.ExamsScreen
 import com.school.attendance.ui.screens.ExpensesScreen
 import com.school.attendance.ui.screens.FinancialReportsScreen
+import com.school.attendance.ui.screens.GradeScaleScreen
 import com.school.attendance.ui.screens.HolidaysScreen
 import com.school.attendance.ui.screens.JoinScreen
 import com.school.attendance.ui.screens.JournalEntryScreen
 import com.school.attendance.ui.screens.LicenseScreen
 import com.school.attendance.ui.screens.LiveLocationScreen
 import com.school.attendance.ui.screens.LoginScreen
+import com.school.attendance.ui.screens.MarkEntryScreen
 import com.school.attendance.ui.screens.MastersScreen
 import com.school.attendance.ui.screens.MessagesScreen
 import com.school.attendance.ui.screens.ParentDashboardScreen
 import com.school.attendance.ui.screens.PayrollScreen
 import com.school.attendance.ui.screens.PurchasesScreen
 import com.school.attendance.ui.screens.ReceiptsScreen
+import com.school.attendance.ui.screens.ReportCardScreen
 import com.school.attendance.ui.screens.ReportsScreen
 import com.school.attendance.ui.screens.SelfAttendanceScreen
 import com.school.attendance.ui.screens.SettingsScreen
@@ -99,6 +103,10 @@ object Routes {
     const val FINANCIAL_REPORTS = "financialReports"
     const val CREDENTIALS = "credentials"
     const val MESSAGES = "messages"
+    const val EXAMS = "exams"
+    const val MARK_ENTRY = "markEntry"
+    const val GRADE_SCALE = "gradeScale"
+    const val REPORT_CARDS = "reportCards"
 }
 
 @Composable
@@ -181,6 +189,10 @@ fun AppNav() {
         composable(Routes.FINANCIAL_REPORTS) { FinancialReportsScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.CREDENTIALS) { CredentialsScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.MESSAGES) { MessagesScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.EXAMS) { ExamsScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.MARK_ENTRY) { MarkEntryScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.GRADE_SCALE) { GradeScaleScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.REPORT_CARDS) { ReportCardScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { nav.popBackStack() },

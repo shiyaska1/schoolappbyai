@@ -5,6 +5,11 @@ import java.util.UUID
 
 /** SharedPreferences store for session, sync and settings. Mirrors the POS billing app's
  * AppPrefs (push/pull cloud sync + bulk-SMS-gateway pattern), scoped to attendance. */
+object ReportCardDisplayMode {
+    const val MARKS_AND_GRADE = "MARKS_AND_GRADE"
+    const val GRADE_ONLY = "GRADE_ONLY"
+}
+
 class AppPrefs(context: Context) {
     private val p = context.applicationContext.getSharedPreferences("attendance_prefs", Context.MODE_PRIVATE)
 
@@ -23,6 +28,16 @@ class AppPrefs(context: Context) {
     var schoolId: String
         get() = (p.getString("school_id", "") ?: "").trim()
         set(v) { p.edit().putString("school_id", v.trim()).apply() }
+
+    /** Display name printed on report cards and other documents; falls back to [schoolId] when blank. */
+    var schoolName: String
+        get() = (p.getString("school_name", "") ?: "").trim()
+        set(v) { p.edit().putString("school_name", v.trim()).apply() }
+
+    /** How a report card shows a subject's result: marks + grade, or grade only. */
+    var reportCardDisplayMode: String
+        get() = p.getString("report_card_display_mode", ReportCardDisplayMode.MARKS_AND_GRADE) ?: ReportCardDisplayMode.MARKS_AND_GRADE
+        set(v) { p.edit().putString("report_card_display_mode", v).apply() }
 
     var loggedInTeacherId: Long
         get() = p.getLong("teacher_id", -1L)
@@ -203,6 +218,8 @@ class AppPrefs(context: Context) {
     fun exportSettingsJson(): String {
         val o = org.json.JSONObject()
         o.put("schoolId", schoolId)
+        o.put("schoolName", schoolName)
+        o.put("reportCardDisplayMode", reportCardDisplayMode)
         o.put("schoolLatitude", schoolLatitude)
         o.put("schoolLongitude", schoolLongitude)
         o.put("geoFenceRadiusMeters", geoFenceRadiusMeters)
@@ -231,6 +248,8 @@ class AppPrefs(context: Context) {
     fun importSettingsJson(json: String) {
         val o = org.json.JSONObject(json)
         schoolId = o.optString("schoolId", schoolId)
+        schoolName = o.optString("schoolName", schoolName)
+        reportCardDisplayMode = o.optString("reportCardDisplayMode", reportCardDisplayMode)
         schoolLatitude = o.optDouble("schoolLatitude", schoolLatitude)
         schoolLongitude = o.optDouble("schoolLongitude", schoolLongitude)
         geoFenceRadiusMeters = o.optInt("geoFenceRadiusMeters", geoFenceRadiusMeters)

@@ -26,8 +26,11 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.LocalShipping
@@ -39,6 +42,7 @@ import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
@@ -184,13 +188,17 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Buses", Icons.Filled.DirectionsBus, Routes.BUSES, "Masters"),
         Tile("Holidays", Icons.Filled.EventBusy, Routes.HOLIDAYS, "Masters"),
         Tile("Login Credentials", Icons.Filled.Key, Routes.CREDENTIALS, "Masters"),
+        Tile("Exams", Icons.Filled.Quiz, Routes.EXAMS, "Masters"),
+        Tile("Grade Scale", Icons.Filled.Grade, Routes.GRADE_SCALE, "Masters"),
         Tile("Settings", Icons.Filled.Settings, Routes.SETTINGS, "Masters"),
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         Tile("Staff Attendance", Icons.Filled.Badge, Routes.TEACHER_ATTENDANCE, "Transactions"),
+        Tile("Exam Mark Entry", Icons.Filled.EditNote, Routes.MARK_ENTRY, "Transactions"),
         Tile("Bus Location", Icons.Filled.LocationOn, Routes.LIVE_LOCATION, "Transactions"),
         Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
         Tile("Messages", Icons.Filled.Message, Routes.MESSAGES, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports"),
+        Tile("Report Cards", Icons.Filled.Description, Routes.REPORT_CARDS, "Reports"),
         Tile("Payroll", Icons.Filled.Payments, Routes.PAYROLL, "Reports"),
         Tile("Chart of Accounts", Icons.Filled.AccountTree, Routes.ACCOUNTS, "Accounts/Masters"),
         Tile("Customers", Icons.Filled.People, Routes.CUSTOMERS, "Accounts/Masters"),
@@ -204,9 +212,11 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         if (canSelfMark) Tile("My Attendance", Icons.Filled.MyLocation, Routes.SELF_ATTENDANCE, "Transactions") else null,
         if (canViewBus) Tile("Bus Location", Icons.Filled.LocationOn, Routes.LIVE_LOCATION, "Transactions") else null,
+        Tile("Exam Mark Entry", Icons.Filled.EditNote, Routes.MARK_ENTRY, "Transactions"),
         Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
         Tile("Messages", Icons.Filled.Message, Routes.MESSAGES, "Transactions"),
-        Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports")
+        Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports"),
+        Tile("Report Cards", Icons.Filled.Description, Routes.REPORT_CARDS, "Reports")
     )
     val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, false) }; ACCOUNTS_SUB_ORDER.forEach { put(it, false) } } }
 

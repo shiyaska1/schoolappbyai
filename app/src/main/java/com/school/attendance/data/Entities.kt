@@ -185,6 +185,57 @@ data class Holiday(
     val updatedAtMillis: Long = 0
 )
 
+object ExamType {
+    const val UNIT_TEST = "UNIT_TEST"
+    const val TERM_EXAM = "TERM_EXAM"
+}
+
+/** One exam session for one division, e.g. "Unit Test 1" or "Term 1 Exam". Several exams can share
+ * the same [termGroup] (e.g. two unit tests + a term exam all feeding "Term 1") — the report card
+ * consolidates every exam in a group for a subject, scaling each one's [maxMarks] entry down (or up)
+ * to its [reportWeight] share of that subject's final total, so a teacher can keep marking out of
+ * 100 while a unit test only counts for, say, 20 of the term's 100. */
+@Entity(tableName = "exams")
+data class Exam(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val examType: String = ExamType.UNIT_TEST,
+    val termGroup: String = "",
+    val divisionId: Long = 0,
+    val dateMillis: Long = 0,
+    /** What the teacher enters marks against, e.g. 100. */
+    val maxMarks: Double = 100.0,
+    /** This exam's contribution to its [termGroup]'s subject total on the report card, e.g. 20. */
+    val reportWeight: Double = 100.0,
+    val updatedAtMillis: Long = 0
+)
+
+/** One student's mark in one subject for one [Exam]. */
+@Entity(tableName = "exam_marks")
+data class ExamMark(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val examId: Long,
+    val studentId: Long,
+    val subjectId: Long,
+    val marksObtained: Double = 0.0,
+    val absent: Boolean = false,
+    val enteredByTeacherId: Long = 0,
+    val deviceId: String = "",
+    val updatedAtMillis: Long = 0
+)
+
+/** A percentage band mapped to a letter grade for report cards, e.g. 90-100 -> "A+". Bands should
+ * not overlap; [grade] is treated as the natural key so re-editing a band's range updates it in place. */
+@Entity(tableName = "grade_bands")
+data class GradeBand(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val minPercent: Double,
+    val maxPercent: Double,
+    val grade: String,
+    val remark: String = "",
+    val updatedAtMillis: Long = 0
+)
+
 /** A message between a parent and their child's teachers, or a school-wide/division broadcast.
  * Synced the same way as everything else (push/pull) rather than a separate mailbox protocol —
  * that keeps it working with any server that already speaks the export/import JSON, and re-pulling

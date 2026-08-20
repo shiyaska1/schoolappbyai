@@ -142,6 +142,33 @@ interface SchoolDao {
     suspend fun routeFor(teacherId: Long, from: Long, to: Long): List<LocationPing>
     @Query("DELETE FROM location_pings WHERE dateMillis < :beforeMillis") suspend fun pruneLocationPings(beforeMillis: Long)
 
+    // ---- exams ----
+    @Query("SELECT * FROM exams ORDER BY dateMillis") fun exams(): Flow<List<Exam>>
+    @Query("SELECT * FROM exams") suspend fun examsOnce(): List<Exam>
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertExam(e: Exam): Long
+    @Delete suspend fun deleteExam(e: Exam)
+
+    // ---- exam marks ----
+    @Query("SELECT * FROM exam_marks") fun examMarks(): Flow<List<ExamMark>>
+    @Query("SELECT * FROM exam_marks") suspend fun examMarksOnce(): List<ExamMark>
+    @Query("SELECT * FROM exam_marks WHERE examId = :examId AND subjectId = :subjectId")
+    suspend fun examMarksFor(examId: Long, subjectId: Long): List<ExamMark>
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertExamMarks(m: List<ExamMark>)
+    @Query("DELETE FROM exam_marks WHERE examId = :examId AND subjectId = :subjectId")
+    suspend fun clearExamMarksFor(examId: Long, subjectId: Long)
+
+    @androidx.room.Transaction
+    suspend fun saveExamMarksFor(examId: Long, subjectId: Long, marks: List<ExamMark>) {
+        clearExamMarksFor(examId, subjectId)
+        insertExamMarks(marks)
+    }
+
+    // ---- grade bands ----
+    @Query("SELECT * FROM grade_bands ORDER BY minPercent DESC") fun gradeBands(): Flow<List<GradeBand>>
+    @Query("SELECT * FROM grade_bands ORDER BY minPercent DESC") suspend fun gradeBandsOnce(): List<GradeBand>
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsertGradeBand(g: GradeBand): Long
+    @Delete suspend fun deleteGradeBand(g: GradeBand)
+
     // ---- wipe (Complete restore starts from empty) ----
     @Query("DELETE FROM courses") suspend fun wipeCourses()
     @Query("DELETE FROM divisions") suspend fun wipeDivisions()
@@ -154,9 +181,14 @@ interface SchoolDao {
 
     @Query("DELETE FROM messages") suspend fun wipeMessages()
 
+    @Query("DELETE FROM exams") suspend fun wipeExams()
+    @Query("DELETE FROM exam_marks") suspend fun wipeExamMarks()
+    @Query("DELETE FROM grade_bands") suspend fun wipeGradeBands()
+
     @androidx.room.Transaction
     suspend fun wipeAll() {
         wipeAttendance(); wipeTeacherAttendance(); wipeHolidays(); wipeMessages()
         wipeStudents(); wipeSubjects(); wipeDivisions(); wipeTeachers(); wipeCourses(); wipeBuses()
+        wipeExamMarks(); wipeExams(); wipeGradeBands()
     }
 }

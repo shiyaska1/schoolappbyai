@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         Course::class, Division::class, Subject::class, Teacher::class, Student::class, AttendanceRecord::class,
         Holiday::class, TeacherAttendanceRecord::class, Message::class, LocationPing::class, Bus::class,
         AccountGroup::class, AccountHead::class, CostCenter::class, JournalEntry::class, JournalLine::class,
-        Receipt::class, Expense::class, Customer::class, Supplier::class, Purchase::class
+        Receipt::class, Expense::class, Customer::class, Supplier::class, Purchase::class,
+        Exam::class, ExamMark::class, GradeBand::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

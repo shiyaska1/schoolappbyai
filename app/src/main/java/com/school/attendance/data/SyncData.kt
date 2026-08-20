@@ -11,14 +11,16 @@ data class MergeResult(
     var teacherAttendanceAdded: Int = 0, var teacherAttendanceUpdated: Int = 0,
     var accountGroupsAdded: Int = 0, var accountHeadsAdded: Int = 0, var costCentersAdded: Int = 0,
     var journalEntriesAdded: Int = 0, var receiptsAdded: Int = 0, var expensesAdded: Int = 0,
-    var customersAdded: Int = 0, var suppliersAdded: Int = 0, var purchasesAdded: Int = 0
+    var customersAdded: Int = 0, var suppliersAdded: Int = 0, var purchasesAdded: Int = 0,
+    var examsAdded: Int = 0, var examMarksAdded: Int = 0, var examMarksUpdated: Int = 0, var gradeBandsAdded: Int = 0
 ) {
     val summary: String
         get() = "+$coursesAdded courses, +$divisionsAdded divisions, +$subjectsAdded subjects, +$busesAdded buses, " +
             "+$teachersAdded teachers, +$studentsAdded students, +$attendanceAdded/$attendanceUpdated attendance, " +
             "+$teacherAttendanceAdded/$teacherAttendanceUpdated staff attendance, +$holidaysAdded holidays, " +
             "+$accountGroupsAdded groups, +$accountHeadsAdded heads, +$journalEntriesAdded journals, " +
-            "+$receiptsAdded receipts, +$expensesAdded expenses, +$customersAdded customers, +$suppliersAdded suppliers, +$purchasesAdded purchases"
+            "+$receiptsAdded receipts, +$expensesAdded expenses, +$customersAdded customers, +$suppliersAdded suppliers, +$purchasesAdded purchases, " +
+            "+$examsAdded exams, +$examMarksAdded/$examMarksUpdated exam marks, +$gradeBandsAdded grade bands"
 }
 
 /**
@@ -162,6 +164,32 @@ object AttendanceSync {
                 .put("fromAccountName", headName[p.fromAccountId] ?: "")
                 .put("deviceId", p.deviceId).put("updatedAtMillis", p.updatedAtMillis)
         }))
+
+        // ---- exams ----
+        val exams = repo.examsOnce()
+        val examMarks = repo.examMarksOnce()
+        val gradeBands = repo.gradeBandsOnce()
+        val subjectName = subjects.associate { it.id to it.name }
+        val examName = exams.associate { it.id to it.name }
+
+        root.put("exams", JSONArray(exams.map { e ->
+            JSONObject().put("name", e.name).put("examType", e.examType).put("termGroup", e.termGroup)
+                .put("divisionName", divisionName[e.divisionId] ?: "").put("dateMillis", e.dateMillis)
+                .put("maxMarks", e.maxMarks).put("reportWeight", e.reportWeight).put("updatedAtMillis", e.updatedAtMillis)
+        }))
+        root.put("examMarks", JSONArray(examMarks.map { m ->
+            val s = studentInfo[m.studentId]
+            val exam = exams.firstOrNull { it.id == m.examId }
+            JSONObject().put("examName", examName[m.examId] ?: "").put("divisionName", if (exam != null) (divisionName[exam.divisionId] ?: "") else "")
+                .put("subjectName", subjectName[m.subjectId] ?: "")
+                .put("studentRoll", s?.rollNumber ?: "").put("studentName", s?.name ?: "")
+                .put("marksObtained", m.marksObtained).put("absent", m.absent)
+                .put("deviceId", m.deviceId).put("updatedAtMillis", m.updatedAtMillis)
+        }))
+        root.put("gradeBands", JSONArray(gradeBands.map { g ->
+            JSONObject().put("minPercent", g.minPercent).put("maxPercent", g.maxPercent).put("grade", g.grade)
+                .put("remark", g.remark).put("updatedAtMillis", g.updatedAtMillis)
+        }))
         return root.toString()
     }
 
@@ -284,6 +312,7 @@ object AttendanceSync {
                 result.subjectsAdded++
             }
         }
+        val subjectIdCache = repo.subjectsOnce().associate { "${it.divisionId}|${it.name.trim().lowercase()}" to it.id }
 
         fun resolveDivisionId(divName: String): Long =
             divisionIdCache.entries.firstOrNull { it.key.endsWith("|" + divName.trim().lowercase()) }?.value ?: 0L
@@ -560,6 +589,83 @@ object AttendanceSync {
                 }
                 existingPurchaseNos.add(no)
                 result.purchasesAdded++
+            }
+        }
+
+        // ---- exams ----
+        val existingExams = repo.examsOnce().associateBy { "${it.divisionId}|${it.name.trim().lowercase()}" }.toMutableMap()
+        root.optJSONArray("exams")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val divId = resolveDivisionId(o.optString("divisionName"))
+                val key = "$divId|${o.optString("name").trim().lowercase()}"
+                if (existingExams.containsKey(key)) continue
+                val newExam = Exam(
+                    name = o.optString("name"), examType = o.optString("examType", ExamType.UNIT_TEST), termGroup = o.optString("termGroup"),
+                    divisionId = divId, dateMillis = o.optLong("dateMillis"), maxMarks = o.optDouble("maxMarks", 100.0),
+                    reportWeight = o.optDouble("reportWeight", 100.0), updatedAtMillis = o.optLong("updatedAtMillis")
+                )
+                val id = kotlinx.coroutines.runBlocking { repo.upsertExam(newExam) }
+                existingExams[key] = newExam.copy(id = id)
+                result.examsAdded++
+            }
+        }
+        val examIdCache = existingExams.mapValues { it.value.id }
+
+        root.optJSONArray("examMarks")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val divId = resolveDivisionId(o.optString("divisionName"))
+                val examId = examIdCache["$divId|${o.optString("examName").trim().lowercase()}"] ?: continue
+                val subjectId = subjectIdCache["$divId|${o.optString("subjectName").trim().lowercase()}"] ?: continue
+                val sKey = studentKey(divId.toString(), o.optString("studentRoll"), o.optString("studentName"))
+                val studentId = studentIdCache[sKey] ?: continue
+                val incomingUpdatedAt = o.optLong("updatedAtMillis")
+                val existing = kotlinx.coroutines.runBlocking { dao.examMarksFor(examId, subjectId) }.firstOrNull { it.studentId == studentId }
+                if (existing == null) {
+                    kotlinx.coroutines.runBlocking {
+                        dao.insertExamMarks(listOf(ExamMark(
+                            examId = examId, studentId = studentId, subjectId = subjectId,
+                            marksObtained = o.optDouble("marksObtained", 0.0), absent = o.optBoolean("absent", false),
+                            deviceId = o.optString("deviceId"), updatedAtMillis = incomingUpdatedAt
+                        )))
+                    }
+                    result.examMarksAdded++
+                } else if (incomingUpdatedAt > existing.updatedAtMillis) {
+                    kotlinx.coroutines.runBlocking {
+                        dao.insertExamMarks(listOf(existing.copy(
+                            marksObtained = o.optDouble("marksObtained", 0.0), absent = o.optBoolean("absent", false), updatedAtMillis = incomingUpdatedAt
+                        )))
+                    }
+                    result.examMarksUpdated++
+                }
+            }
+        }
+
+        val existingGradeBands = repo.gradeBandsOnce().associateBy { it.grade.trim().lowercase() }.toMutableMap()
+        root.optJSONArray("gradeBands")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val key = o.optString("grade").trim().lowercase()
+                if (key.isBlank()) continue
+                val existing = existingGradeBands[key]
+                val incomingUpdatedAt = o.optLong("updatedAtMillis")
+                if (existing == null) {
+                    kotlinx.coroutines.runBlocking {
+                        repo.upsertGradeBand(GradeBand(
+                            minPercent = o.optDouble("minPercent", 0.0), maxPercent = o.optDouble("maxPercent", 0.0),
+                            grade = o.optString("grade"), remark = o.optString("remark"), updatedAtMillis = incomingUpdatedAt
+                        ))
+                    }
+                    result.gradeBandsAdded++
+                } else if (incomingUpdatedAt > existing.updatedAtMillis) {
+                    kotlinx.coroutines.runBlocking {
+                        repo.upsertGradeBand(existing.copy(
+                            minPercent = o.optDouble("minPercent", existing.minPercent), maxPercent = o.optDouble("maxPercent", existing.maxPercent),
+                            remark = o.optString("remark", existing.remark), updatedAtMillis = incomingUpdatedAt
+                        ))
+                    }
+                }
             }
         }
 
