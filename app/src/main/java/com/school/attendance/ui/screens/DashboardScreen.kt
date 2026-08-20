@@ -45,6 +45,8 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -219,6 +221,8 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Report Cards", Icons.Filled.Description, Routes.REPORT_CARDS, "Reports")
     )
     val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, false) }; ACCOUNTS_SUB_ORDER.forEach { put(it, false) } } }
+    var searchQuery by remember { mutableStateOf("") }
+    val matchingTiles = if (searchQuery.isBlank()) null else tiles.filter { it.label.contains(searchQuery, ignoreCase = true) }
 
     Scaffold(topBar = {
         TopAppBar(
@@ -306,8 +310,23 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
                     })
                 }
             }
+            OutlinedTextField(
+                value = searchQuery, onValueChange = { searchQuery = it }, singleLine = true,
+                placeholder = { Text("Search modules") },
+                leadingIcon = { Icon(Icons.Filled.Search, null) },
+                trailingIcon = { if (searchQuery.isNotBlank()) IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Filled.Clear, "Clear") } },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+            )
             LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-                if (showAdminTiles) {
+                if (matchingTiles != null) {
+                    if (matchingTiles.isEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Text("No modules match \"$searchQuery\"", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                        }
+                    } else {
+                        items(matchingTiles) { tile -> DashboardTile(tile) { onOpen(tile.route) } }
+                    }
+                } else if (showAdminTiles) {
                     SECTION_ORDER.forEach { section ->
                         if (section == "Accounts") {
                             val accTiles = tiles.filter { it.section.startsWith("Accounts/") }
