@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.Card
@@ -48,9 +49,9 @@ class ParentDashboardViewModel(app: Application) : AndroidViewModel(app) {
     val busNumber = MutableStateFlow<String?>(null)
     val summary = MutableStateFlow<AttendanceSummary?>(null)
 
-    fun reload() {
+    fun reload(studentIdOverride: Long? = null) {
         viewModelScope.launch {
-            val id = AppPrefs(getApplication()).loggedInStudentId
+            val id = studentIdOverride ?: AppPrefs(getApplication()).loggedInStudentId
             val s = repo.studentsOnce().firstOrNull { it.id == id }
             student.value = s
             if (s != null) {
@@ -61,24 +62,29 @@ class ParentDashboardViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
-
-    init { reload() }
 }
 
+/** [studentIdOverride] + [onBack] together mean "an admin/teacher is viewing this student's parent
+ * screen from Switch to Parent" — no session change, no auto-sync (they already have the data),
+ * and a Back arrow instead of Log out. Normal parent use passes neither: reads the real session
+ * via [AppPrefs.loggedInStudentId] and syncs on open. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ParentDashboardScreen(onLogout: () -> Unit, vm: ParentDashboardViewModel = viewModel()) {
+fun ParentDashboardScreen(onLogout: () -> Unit, studentIdOverride: Long? = null, onBack: (() -> Unit)? = null, vm: ParentDashboardViewModel = viewModel()) {
     val context = LocalContext.current
     val student by vm.student.collectAsState()
     val busId by vm.busId.collectAsState()
     val busNumber by vm.busNumber.collectAsState()
     val summary by vm.summary.collectAsState()
     var showBusLocation by remember { mutableStateOf(false) }
+    val viewingAsAdmin = studentIdOverride != null
 
-    LaunchedEffect(Unit) {
-        CloudSyncManager.runOnePullMergePush(context)
-        MessageSync.pushAndPull(context)
-        vm.reload()
+    LaunchedEffect(studentIdOverride) {
+        if (!viewingAsAdmin) {
+            CloudSyncManager.runOnePullMergePush(context)
+            MessageSync.pushAndPull(context)
+        }
+        vm.reload(studentIdOverride)
     }
 
     if (showBusLocation && busId != 0L) {
@@ -88,9 +94,10 @@ fun ParentDashboardScreen(onLogout: () -> Unit, vm: ParentDashboardViewModel = v
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(student?.name ?: "Parent") },
-            actions = { IconButton(onClick = onLogout) { Icon(Icons.Filled.Logout, "Log out") } },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, actionIconContentColor = MaterialTheme.colorScheme.onPrimary)
+            title = { Text((student?.name ?: "Parent") + if (viewingAsAdmin) " (viewing as parent)" else "") },
+            navigationIcon = { if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            actions = { if (!viewingAsAdmin) IconButton(onClick = onLogout) { Icon(Icons.Filled.Logout, "Log out") } },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, navigationIconContentColor = MaterialTheme.colorScheme.onPrimary, actionIconContentColor = MaterialTheme.colorScheme.onPrimary)
         )
     }) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(16.dp)) {

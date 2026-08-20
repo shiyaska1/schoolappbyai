@@ -31,9 +31,12 @@ import com.school.attendance.ui.screens.ReportsScreen
 import com.school.attendance.ui.screens.SelfAttendanceScreen
 import com.school.attendance.ui.screens.SettingsScreen
 import com.school.attendance.ui.screens.StudentsScreen
+import com.school.attendance.ui.screens.SwitchToParentScreen
 import com.school.attendance.ui.screens.TeacherAttendanceScreen
 import com.school.attendance.ui.screens.TeachersScreen
 import com.school.attendance.data.License
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 /** Holds a `schoolapp://join?...` link's Uri from cold start until [com.school.attendance.ui.screens.JoinScreen]
  * consumes it — simpler than wiring Navigation-Compose's own deep-link argument passing for a
@@ -74,6 +77,8 @@ object Routes {
     const val LICENSE = "license"
     const val JOIN = "join"
     const val PARENT_DASHBOARD = "parentDashboard"
+    const val SWITCH_PARENT = "switchToParent"
+    const val VIEW_AS_PARENT = "viewAsParent"
 }
 
 @Composable
@@ -136,6 +141,16 @@ fun AppNav() {
         composable(Routes.BUSES) { BusesScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.LIVE_LOCATION) { LiveLocationScreen(onBack = { nav.popBackStack() }, showHistory = true) }
         composable(Routes.SELF_ATTENDANCE) { SelfAttendanceScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.SWITCH_PARENT) {
+            SwitchToParentScreen(onBack = { nav.popBackStack() }, onPick = { studentId -> nav.navigate("${Routes.VIEW_AS_PARENT}/$studentId") })
+        }
+        composable(
+            "${Routes.VIEW_AS_PARENT}/{studentId}",
+            arguments = listOf(navArgument("studentId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val studentId = backStackEntry.arguments?.getLong("studentId") ?: 0L
+            ParentDashboardScreen(onLogout = {}, studentIdOverride = studentId, onBack = { nav.popBackStack() })
+        }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { nav.popBackStack() },

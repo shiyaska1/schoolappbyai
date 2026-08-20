@@ -99,6 +99,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit) {
     var locationPushPath by remember { mutableStateOf(prefs.locationPushPath) }
     var locationPullPath by remember { mutableStateOf(prefs.locationPullPath) }
     var autoSync by remember { mutableStateOf(prefs.cloudAutoSync) }
+    var autoSyncMinutes by remember { mutableStateOf((prefs.cloudAutoSyncIntervalSec / 60).coerceAtLeast(1).toString()) }
     var mode by remember { mutableStateOf(prefs.attendanceMode) }
     var offDays by remember { mutableStateOf(prefs.weeklyOffDays) }
     var smsUrl by remember { mutableStateOf(prefs.smsGatewayUrl) }
@@ -116,6 +117,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit) {
         prefs.messagePushPath = messagePushPath; prefs.messagePullPath = messagePullPath
         prefs.locationPushPath = locationPushPath; prefs.locationPullPath = locationPullPath
         prefs.cloudAutoSync = autoSync; prefs.attendanceMode = mode; prefs.weeklyOffDays = offDays
+        prefs.cloudAutoSyncIntervalSec = (autoSyncMinutes.toIntOrNull() ?: 10) * 60
         prefs.smsGatewayUrl = smsUrl; prefs.smsGatewayMethod = smsMethod; prefs.smsApiKey = smsApiKey
         prefs.smsSenderId = smsSender; prefs.smsOnAbsent = smsOnAbsent
         prefs.schoolLatitude = schoolLat.toDoubleOrNull() ?: 0.0
@@ -138,6 +140,7 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit) {
         schoolLat = if (prefs.schoolLatitude != 0.0) prefs.schoolLatitude.toString() else ""
         schoolLng = if (prefs.schoolLongitude != 0.0) prefs.schoolLongitude.toString() else ""
         geoRadius = prefs.geoFenceRadiusMeters.toString()
+        autoSyncMinutes = (prefs.cloudAutoSyncIntervalSec / 60).coerceAtLeast(1).toString()
         backupStatus = "Settings imported"
     }
 
@@ -190,8 +193,14 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit) {
             OutlinedTextField(value = locationPushPath, onValueChange = { locationPushPath = it }, label = { Text("Location push filename") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             OutlinedTextField(value = locationPullPath, onValueChange = { locationPullPath = it }, label = { Text("Location pull filename") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
             Row(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Text("Auto-sync while app is open", Modifier.weight(1f))
+                Text("Auto-sync over Wi-Fi", Modifier.weight(1f))
                 Switch(checked = autoSync, onCheckedChange = { autoSync = it })
+            }
+            if (autoSync) {
+                OutlinedTextField(
+                    value = autoSyncMinutes, onValueChange = { autoSyncMinutes = it.filter { c -> c.isDigit() } },
+                    label = { Text("Auto-sync every (minutes)") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                )
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { persist(); scope.launch { CloudSyncManager.runOnePullMergePush(context) } }, modifier = Modifier.weight(1f)) { Text("Sync now") }

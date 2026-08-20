@@ -36,12 +36,15 @@ object CloudSyncManager {
 
     fun isRunning(): Boolean = autoJob != null
 
+    /** Background auto-sync only ever runs over Wi-Fi — a phone left with auto-sync on shouldn't
+     * quietly burn a driver's or teacher's mobile data every few minutes. Manual "Sync now" has no
+     * such restriction. */
     fun startAuto(context: Context, intervalMs: Long) {
         stopAuto()
         val app = context.applicationContext
         autoJob = scope.launch {
             while (isActive) {
-                runOnePullMergePush(app)
+                if (isOnWifi(app)) runOnePullMergePush(app) else status.value = "Auto-sync waiting for Wi-Fi"
                 delay(intervalMs)
             }
         }
@@ -54,6 +57,13 @@ object CloudSyncManager {
         val net = cm.activeNetwork ?: return@runCatching false
         val caps = cm.getNetworkCapabilities(net) ?: return@runCatching false
         caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }.getOrDefault(false)
+
+    private fun isOnWifi(context: Context): Boolean = runCatching {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val net = cm.activeNetwork ?: return@runCatching false
+        val caps = cm.getNetworkCapabilities(net) ?: return@runCatching false
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)
     }.getOrDefault(false)
 
     suspend fun runOnePullMergePush(app: Context): Boolean = withContext(Dispatchers.IO) { gate.withLock {

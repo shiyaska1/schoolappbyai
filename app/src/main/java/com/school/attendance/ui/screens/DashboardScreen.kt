@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -175,12 +176,14 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         Tile("Staff Attendance", Icons.Filled.Badge, Routes.TEACHER_ATTENDANCE, "Transactions"),
         Tile("Bus Location", Icons.Filled.LocationOn, Routes.LIVE_LOCATION, "Transactions"),
+        Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports"),
         Tile("Payroll", Icons.Filled.Payments, Routes.PAYROLL, "Reports")
     ) else listOfNotNull(
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         if (canSelfMark) Tile("My Attendance", Icons.Filled.MyLocation, Routes.SELF_ATTENDANCE, "Transactions") else null,
         if (canViewBus) Tile("Bus Location", Icons.Filled.LocationOn, Routes.LIVE_LOCATION, "Transactions") else null,
+        Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports")
     )
     val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, true) } } }

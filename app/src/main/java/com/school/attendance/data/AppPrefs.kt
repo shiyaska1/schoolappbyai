@@ -133,8 +133,8 @@ class AppPrefs(context: Context) {
         set(v) { p.edit().putBoolean("cloud_auto_sync", v).apply() }
 
     var cloudAutoSyncIntervalSec: Int
-        get() = p.getInt("cloud_auto_sync_interval_sec", 300)
-        set(v) { p.edit().putInt("cloud_auto_sync_interval_sec", v.coerceAtLeast(30)).apply() }
+        get() = p.getInt("cloud_auto_sync_interval_sec", 600)
+        set(v) { p.edit().putInt("cloud_auto_sync_interval_sec", v.coerceAtLeast(60)).apply() }
 
     var lastCloudSyncAt: Long
         get() = p.getLong("last_cloud_sync_at", 0)
@@ -217,6 +217,7 @@ class AppPrefs(context: Context) {
         o.put("locationPullPath", locationPullPath)
         o.put("cloudAutoSync", cloudAutoSync)
         o.put("cloudAutoSyncIntervalSec", cloudAutoSyncIntervalSec)
+        o.put("cloudAutoSyncIntervalSec", cloudAutoSyncIntervalSec)
         o.put("smsGatewayUrl", smsGatewayUrl)
         o.put("smsGatewayMethod", smsGatewayMethod)
         o.put("smsApiKey", smsApiKey)
@@ -243,6 +244,7 @@ class AppPrefs(context: Context) {
         locationPushPath = o.optString("locationPushPath", locationPushPath)
         locationPullPath = o.optString("locationPullPath", locationPullPath)
         cloudAutoSync = o.optBoolean("cloudAutoSync", cloudAutoSync)
+        cloudAutoSyncIntervalSec = o.optInt("cloudAutoSyncIntervalSec", cloudAutoSyncIntervalSec)
         cloudAutoSyncIntervalSec = o.optInt("cloudAutoSyncIntervalSec", cloudAutoSyncIntervalSec)
         smsGatewayUrl = o.optString("smsGatewayUrl", smsGatewayUrl)
         smsGatewayMethod = o.optString("smsGatewayMethod", smsGatewayMethod)
