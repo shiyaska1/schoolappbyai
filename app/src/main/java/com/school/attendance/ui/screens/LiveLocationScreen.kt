@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,7 +73,7 @@ class LiveLocationViewModel(app: Application) : AndroidViewModel(app) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, vm: LiveLocationViewModel = viewModel()) {
+fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId: Long? = null, vm: LiveLocationViewModel = viewModel()) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { AppPrefs(context) }
@@ -84,15 +85,25 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, vm: LiveLocatio
     var route by remember { mutableStateOf<List<LocationFix>>(emptyList()) }
     var status by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(restrictToBusId, buses) {
+        if (restrictToBusId != null && selected == null) {
+            buses.firstOrNull { it.id == restrictToBusId }?.let { b -> selected = b; vm.loadDriverPhone(b.id) }
+        }
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Bus Location") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)) }) { pad ->
         Column(Modifier.fillMaxSize().padding(pad).padding(12.dp)) {
-            Box {
-                OutlinedTextField(value = selected?.let { "${it.busNumber}${if (it.route.isNotBlank()) " — ${it.route}" else ""}" } ?: "", onValueChange = {}, readOnly = true, label = { Text("Bus") },
-                    trailingIcon = { IconButton(onClick = { menu = true }) { Icon(Icons.Filled.ArrowDropDown, null) } }, modifier = Modifier.fillMaxWidth())
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    buses.forEach { b -> DropdownMenuItem(text = { Text(b.busNumber) }, onClick = { selected = b; fix = null; route = emptyList(); status = null; menu = false; scope.launch { vm.loadDriverPhone(b.id) } }) }
+            if (restrictToBusId == null) {
+                Box {
+                    OutlinedTextField(value = selected?.let { "${it.busNumber}${if (it.route.isNotBlank()) " — ${it.route}" else ""}" } ?: "", onValueChange = {}, readOnly = true, label = { Text("Bus") },
+                        trailingIcon = { IconButton(onClick = { menu = true }) { Icon(Icons.Filled.ArrowDropDown, null) } }, modifier = Modifier.fillMaxWidth())
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        buses.forEach { b -> DropdownMenuItem(text = { Text(b.busNumber) }, onClick = { selected = b; fix = null; route = emptyList(); status = null; menu = false; scope.launch { vm.loadDriverPhone(b.id) } }) }
+                    }
                 }
+            } else {
+                Text("Bus: ${selected?.busNumber ?: "..."}", style = MaterialTheme.typography.titleMedium)
             }
 
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

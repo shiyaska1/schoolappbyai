@@ -82,11 +82,14 @@ fun AppNav() {
     val context = LocalContext.current
     val prefs = remember(context) { AppPrefs(context) }
     if (prefs.installDateMillis == 0L) prefs.installDateMillis = System.currentTimeMillis()
-    val licenseDue = remember { License.dueMilestone(prefs.installDateMillis) > prefs.licensedMilestone }
+    // Trial/licensing only gates staff/admin use — a parent's own access never expires, and it's
+    // checked at teacher sign-in, not cold start, so an expired trial never blocks a parent from
+    // even reaching the Login screen to sign in.
+    fun teacherLicenseDue() = License.dueMilestone(prefs.installDateMillis) > prefs.licensedMilestone
     val start = when {
         PendingJoin.uri != null -> Routes.JOIN
-        licenseDue -> Routes.LICENSE
         prefs.isParentSession -> Routes.PARENT_DASHBOARD
+        prefs.loggedInTeacherId > 0 && teacherLicenseDue() -> Routes.LICENSE
         prefs.loggedInTeacherId > 0 -> Routes.DASHBOARD
         else -> Routes.LOGIN
     }
@@ -99,11 +102,11 @@ fun AppNav() {
             )
         }
         composable(Routes.LICENSE) {
-            LicenseScreen(onActivated = { nav.navigate(Routes.LOGIN) { popUpTo(Routes.LICENSE) { inclusive = true } } })
+            LicenseScreen(onActivated = { nav.navigate(Routes.DASHBOARD) { popUpTo(Routes.LICENSE) { inclusive = true } } })
         }
         composable(Routes.LOGIN) {
             LoginScreen(
-                onLoggedIn = { nav.navigate(Routes.DASHBOARD) { popUpTo(Routes.LOGIN) { inclusive = true } } },
+                onLoggedIn = { nav.navigate(if (teacherLicenseDue()) Routes.LICENSE else Routes.DASHBOARD) { popUpTo(Routes.LOGIN) { inclusive = true } } },
                 onParentLoggedIn = { nav.navigate(Routes.PARENT_DASHBOARD) { popUpTo(Routes.LOGIN) { inclusive = true } } }
             )
         }

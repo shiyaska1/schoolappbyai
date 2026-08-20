@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -214,6 +216,16 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit) {
                         },
                         modifier = Modifier.weight(1f)
                     ) { Text("Share (WhatsApp/SMS/Email)") }
+                }
+                val qrBitmap = remember(joinLink) { runCatching { com.school.attendance.util.QrCode.generate(joinLink) }.getOrNull() }
+                qrBitmap?.let { bmp ->
+                    androidx.compose.foundation.Image(
+                        bitmap = bmp.asImageBitmap(), contentDescription = "Setup QR code",
+                        modifier = Modifier.padding(top = 12.dp).size(200.dp)
+                    )
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { com.school.attendance.util.QrCode.shareAsJpg(context, bmp, "school-app-setup.jpg") }, modifier = Modifier.weight(1f)) { Text("Download / share QR (JPG)") }
+                    }
                 }
             } else {
                 Text("Set a Base URL above first.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))

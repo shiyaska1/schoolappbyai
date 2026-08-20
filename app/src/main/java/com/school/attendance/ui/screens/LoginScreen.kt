@@ -82,7 +82,7 @@ fun LoginScreen(onLoggedIn: () -> Unit, onParentLoggedIn: () -> Unit, vm: LoginV
 
     Box(Modifier.fillMaxSize().padding(24.dp)) {
         Column(Modifier.fillMaxWidth().align(Alignment.Center)) {
-            Text("School App", style = MaterialTheme.typography.headlineSmall)
+            Text("School Management App", style = MaterialTheme.typography.headlineSmall)
             Text("Sign in", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 16.dp, top = 4.dp))
 
             pendingPinSetup?.let { admin ->

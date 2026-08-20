@@ -9,7 +9,7 @@ import javax.crypto.spec.SecretKeySpec
  * Trial + device-locked activation — same scheme as the POS billing app, so the same key-generation
  * process and secret work for both. The activation key is a keyed HMAC-SHA256 of the device id (and
  * milestone), so it can't be forged without [SECRET]. To activate a school: they read you the
- * Device ID from the expiry screen, you compute the key (see tools/generate-license-key.ps1 in this
+ * Device ID from the expiry screen, you compute the key (see server/generate-license-key.ps1 in this
  * repo, or any HMAC-SHA256 tool: key = SECRET, message = the Device ID exactly as shown, take the
  * first 16 hex chars, upper-case), and they type it in.
  */
