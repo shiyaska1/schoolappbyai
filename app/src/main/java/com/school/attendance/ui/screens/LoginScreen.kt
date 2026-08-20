@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,10 +55,18 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
     fun setPin(teacher: Teacher, pin: String, onDone: (Long) -> Unit) {
         viewModelScope.launch { onDone(repo.upsertTeacher(teacher.copy(pin = pin))) }
     }
+
+    fun tryParentLogin(username: String, password: String, onResult: (Long?) -> Unit) {
+        viewModelScope.launch {
+            val s = repo.studentByUsername(username)
+            onResult(if (s != null && s.password == password) s.id else null)
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(onLoggedIn: () -> Unit, vm: LoginViewModel = viewModel()) {
+fun LoginScreen(onLoggedIn: () -> Unit, onParentLoggedIn: () -> Unit, vm: LoginViewModel = viewModel()) {
     val context = LocalContext.current
     val teachers by vm.teachers.collectAsState()
     var selected by remember { mutableStateOf<Teacher?>(null) }
@@ -65,6 +75,10 @@ fun LoginScreen(onLoggedIn: () -> Unit, vm: LoginViewModel = viewModel()) {
     var error by remember { mutableStateOf<String?>(null) }
     var newAdminName by remember { mutableStateOf("") }
     var pendingPinSetup by remember { mutableStateOf<Teacher?>(null) }
+    var isParentMode by remember { mutableStateOf(false) }
+    var parentUsername by remember { mutableStateOf("") }
+    var parentPassword by remember { mutableStateOf("") }
+    var parentError by remember { mutableStateOf<String?>(null) }
 
     Box(Modifier.fillMaxSize().padding(24.dp)) {
         Column(Modifier.fillMaxWidth().align(Alignment.Center)) {
@@ -76,6 +90,27 @@ fun LoginScreen(onLoggedIn: () -> Unit, vm: LoginViewModel = viewModel()) {
                     onSkip = { AppPrefs(context).loggedInTeacherId = admin.id; onLoggedIn() },
                     onSave = { pin -> vm.setPin(admin, pin) { AppPrefs(context).loggedInTeacherId = it; onLoggedIn() } }
                 )
+                return@Column
+            }
+
+            Row(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                FilterChip(selected = !isParentMode, onClick = { isParentMode = false }, label = { Text("Teacher / Staff") }, modifier = Modifier.padding(end = 8.dp))
+                FilterChip(selected = isParentMode, onClick = { isParentMode = true }, label = { Text("Parent") })
+            }
+
+            if (isParentMode) {
+                OutlinedTextField(value = parentUsername, onValueChange = { parentUsername = it }, label = { Text("Username") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = parentPassword, onValueChange = { parentPassword = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                parentError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+                Button(
+                    onClick = {
+                        vm.tryParentLogin(parentUsername, parentPassword) { studentId ->
+                            if (studentId != null) { AppPrefs(context).loggedInStudentId = studentId; onParentLoggedIn() }
+                            else parentError = "Username or password is wrong."
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
+                ) { Text("Sign in") }
                 return@Column
             }
 

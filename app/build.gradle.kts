@@ -13,10 +13,20 @@ android {
         applicationId = "com.school.attendance"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        // CI sets VERSION_CODE per build (see .github/workflows/build.yml and release.yml) so every
+        // APK/AAB gets a unique, always-increasing code without hand-editing this file each time.
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
         versionName = "0.1.0"
         vectorDrawables { useSupportLibrary = true }
     }
+
+    // Play Store upload key — provided by CI via env vars (kept out of git). Falls back to the
+    // committed "stable" key for local/debug builds so a plain ./gradlew still works.
+    val uploadStoreFile = System.getenv("UPLOAD_STORE_FILE")
+    val uploadStorePassword = System.getenv("UPLOAD_STORE_PASSWORD")
+    val uploadKeyAlias = System.getenv("UPLOAD_KEY_ALIAS")
+    val uploadKeyPassword = System.getenv("UPLOAD_KEY_PASSWORD")
+    val hasUploadKey = !uploadStoreFile.isNullOrBlank() && !uploadStorePassword.isNullOrBlank()
 
     signingConfigs {
         create("stable") {
@@ -25,16 +35,26 @@ android {
             keyAlias = "schoolattendance"
             keyPassword = "attendance123"
         }
+        if (hasUploadKey) {
+            create("upload") {
+                storeFile = file(uploadStoreFile!!)
+                storePassword = uploadStorePassword
+                keyAlias = uploadKeyAlias
+                keyPassword = uploadKeyPassword
+            }
+        }
     }
 
     buildTypes {
         debug {
+            // Sign with the committed stable key so testers can update without data loss.
             signingConfig = signingConfigs.getByName("stable")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("stable")
+            // Use the Play upload key when CI provides it, else the local stable key.
+            signingConfig = signingConfigs.getByName(if (hasUploadKey) "upload" else "stable")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

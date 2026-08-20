@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MyLocation
@@ -27,15 +28,19 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -69,9 +74,43 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             me.value = if (id > 0) repo.teacherById(id) else null
         }
     }
+
+    fun changePin(newPin: String, onDone: () -> Unit) {
+        val t = me.value ?: return
+        viewModelScope.launch { repo.upsertTeacher(t.copy(pin = newPin)); me.value = t.copy(pin = newPin); onDone() }
+    }
 }
 
 private data class Tile(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val route: String)
+
+@Composable
+private fun ChangePinDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Change my PIN") },
+        text = {
+            Column {
+                Text("Leave both blank to remove your PIN.", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(value = pin, onValueChange = { pin = it.filter { c -> c.isDigit() }.take(6) }, label = { Text("New PIN") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                OutlinedTextField(value = confirm, onValueChange = { confirm = it.filter { c -> c.isDigit() }.take(6) }, label = { Text("Confirm") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                when {
+                    pin != confirm -> error = "PINs don't match"
+                    pin.isNotBlank() && pin.length < 4 -> error = "PIN must be at least 4 digits"
+                    else -> onSave(pin)
+                }
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +130,11 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
     val isDriver = me?.designation.equals("Driver", ignoreCase = true)
     val canSelfMark = me?.canSelfMarkAttendance == true
     val canViewBus = me?.canViewBusLocation == true || isAdmin
+    var showChangePin by remember { mutableStateOf(false) }
+
+    if (showChangePin) {
+        ChangePinDialog(onDismiss = { showChangePin = false }, onSave = { newPin -> vm.changePin(newPin) { showChangePin = false } })
+    }
 
     val tiles = if (showAdminTiles) listOfNotNull(
         Tile("Courses / Divisions / Subjects", Icons.Filled.School, Routes.MASTERS),
@@ -134,6 +178,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
                 if (isAdmin) {
                     IconButton(onClick = { adminView = !adminView }) { Icon(Icons.Filled.SwapHoriz, "Switch to " + if (adminView) "teacher view" else "admin view") }
                 }
+                IconButton(onClick = { showChangePin = true }) { Icon(Icons.Filled.Lock, "Change my PIN") }
                 IconButton(onClick = onLogout) { Icon(Icons.Filled.Logout, "Log out") }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, actionIconContentColor = MaterialTheme.colorScheme.onPrimary)

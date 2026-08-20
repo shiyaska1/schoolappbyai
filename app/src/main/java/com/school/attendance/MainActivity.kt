@@ -1,5 +1,6 @@
 package com.school.attendance
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,10 +20,12 @@ import com.school.attendance.ui.screens.AttendanceScreen
 import com.school.attendance.ui.screens.BusesScreen
 import com.school.attendance.ui.screens.DashboardScreen
 import com.school.attendance.ui.screens.HolidaysScreen
+import com.school.attendance.ui.screens.JoinScreen
 import com.school.attendance.ui.screens.LicenseScreen
 import com.school.attendance.ui.screens.LiveLocationScreen
 import com.school.attendance.ui.screens.LoginScreen
 import com.school.attendance.ui.screens.MastersScreen
+import com.school.attendance.ui.screens.ParentDashboardScreen
 import com.school.attendance.ui.screens.PayrollScreen
 import com.school.attendance.ui.screens.ReportsScreen
 import com.school.attendance.ui.screens.SelfAttendanceScreen
@@ -32,9 +35,17 @@ import com.school.attendance.ui.screens.TeacherAttendanceScreen
 import com.school.attendance.ui.screens.TeachersScreen
 import com.school.attendance.data.License
 
+/** Holds a `schoolapp://join?...` link's Uri from cold start until [com.school.attendance.ui.screens.JoinScreen]
+ * consumes it — simpler than wiring Navigation-Compose's own deep-link argument passing for a
+ * one-shot, app-wide value that's only ever read once right after launch. */
+object PendingJoin {
+    var uri: Uri? = null
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.action == android.content.Intent.ACTION_VIEW) PendingJoin.uri = intent?.data
         setContent {
             SchoolAttendanceTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -61,6 +72,8 @@ object Routes {
     const val LIVE_LOCATION = "liveLocation"
     const val SELF_ATTENDANCE = "selfAttendance"
     const val LICENSE = "license"
+    const val JOIN = "join"
+    const val PARENT_DASHBOARD = "parentDashboard"
 }
 
 @Composable
@@ -71,17 +84,34 @@ fun AppNav() {
     if (prefs.installDateMillis == 0L) prefs.installDateMillis = System.currentTimeMillis()
     val licenseDue = remember { License.dueMilestone(prefs.installDateMillis) > prefs.licensedMilestone }
     val start = when {
+        PendingJoin.uri != null -> Routes.JOIN
         licenseDue -> Routes.LICENSE
+        prefs.isParentSession -> Routes.PARENT_DASHBOARD
         prefs.loggedInTeacherId > 0 -> Routes.DASHBOARD
         else -> Routes.LOGIN
     }
 
     NavHost(navController = nav, startDestination = start) {
+        composable(Routes.JOIN) {
+            JoinScreen(
+                uri = PendingJoin.uri,
+                onReady = { PendingJoin.uri = null; nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } } }
+            )
+        }
         composable(Routes.LICENSE) {
             LicenseScreen(onActivated = { nav.navigate(Routes.LOGIN) { popUpTo(Routes.LICENSE) { inclusive = true } } })
         }
         composable(Routes.LOGIN) {
-            LoginScreen(onLoggedIn = { nav.navigate(Routes.DASHBOARD) { popUpTo(Routes.LOGIN) { inclusive = true } } })
+            LoginScreen(
+                onLoggedIn = { nav.navigate(Routes.DASHBOARD) { popUpTo(Routes.LOGIN) { inclusive = true } } },
+                onParentLoggedIn = { nav.navigate(Routes.PARENT_DASHBOARD) { popUpTo(Routes.LOGIN) { inclusive = true } } }
+            )
+        }
+        composable(Routes.PARENT_DASHBOARD) {
+            ParentDashboardScreen(onLogout = {
+                prefs.clearSession()
+                nav.navigate(Routes.LOGIN) { popUpTo(0) { inclusive = true } }
+            })
         }
         composable(Routes.DASHBOARD) {
             DashboardScreen(

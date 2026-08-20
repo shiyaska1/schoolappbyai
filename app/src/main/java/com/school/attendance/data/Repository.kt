@@ -66,6 +66,8 @@ class Repository(context: Context) {
     suspend fun deleteStudent(s: Student) = dao.updateStudent(s.copy(active = false))
     suspend fun studentsInDivision(divisionId: Long) = dao.studentsInDivision(divisionId)
     suspend fun teacherById(id: Long) = dao.teacherById(id)
+    suspend fun teacherByPhone(phone: String) = dao.teachersOnce().firstOrNull { it.phone == phone.trim() }
+    suspend fun studentByUsername(username: String) = dao.studentsOnce().firstOrNull { it.username.equals(username.trim(), ignoreCase = true) }
     suspend fun teachersOnce() = dao.teachersOnce()
     suspend fun coursesOnce() = dao.coursesOnce()
     suspend fun divisionsOnce() = dao.divisionsOnce()

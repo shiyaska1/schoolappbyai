@@ -19,6 +19,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -194,6 +195,29 @@ fun SettingsScreen(onBack: () -> Unit, onSignedOut: () -> Unit) {
                 Button(onClick = { persist(); scope.launch { CloudSyncManager.runOnePullMergePush(context) } }, modifier = Modifier.weight(1f)) { Text("Sync now") }
             }
             if (syncStatus.isNotBlank()) Text(syncStatus, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
+
+            HorizontalDivider(Modifier.padding(vertical = 16.dp))
+            Text("Setup link for teachers, staff and parents", style = MaterialTheme.typography.titleSmall)
+            Text("Opening this link on their phone (once the app is already installed) fills in the server settings above automatically — they still sign in themselves, so no password ever travels inside the link.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val joinLink = "schoolapp://join?base=${java.net.URLEncoder.encode(baseUrl, "UTF-8")}&school=${java.net.URLEncoder.encode(schoolId, "UTF-8")}"
+            if (baseUrl.isNotBlank()) {
+                Text(joinLink, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { clipboard.setText(AnnotatedString(joinLink)) }, modifier = Modifier.weight(1f)) { Text("Copy link") }
+                    Button(
+                        onClick = {
+                            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(android.content.Intent.EXTRA_TEXT, "Install the School App, then open this link to set it up: $joinLink")
+                            }
+                            context.startActivity(android.content.Intent.createChooser(send, "Share setup link"))
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Share (WhatsApp/SMS/Email)") }
+                }
+            } else {
+                Text("Set a Base URL above first.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 16.dp))
             Text("School location (geo-fence for driver/staff self-attendance)", style = MaterialTheme.typography.titleSmall)
