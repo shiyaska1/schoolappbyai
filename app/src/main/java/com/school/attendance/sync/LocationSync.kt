@@ -47,7 +47,10 @@ object LocationSync {
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val ok = conn.responseCode in 200..299
             conn.disconnect()
-            if (ok) dao.markLocationPingsPushed(pending.map { it.id })
+            if (ok) {
+                dao.markLocationPingsPushed(pending.map { it.id })
+                prefs.lastLocationPushAt = pending.maxOf { it.dateMillis }
+            }
             ok
         } catch (e: Exception) {
             false

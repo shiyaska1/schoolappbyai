@@ -60,6 +60,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -308,6 +309,32 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
                             com.school.attendance.service.LocationTrackingService.stop(context)
                         }
                     })
+                }
+                var lastPushed by remember { mutableStateOf(prefs.lastLocationPushAt) }
+                var pushing by remember { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (lastPushed > 0) "Last location sent: " + java.text.SimpleDateFormat("hh:mm:ss a", java.util.Locale.getDefault()).format(lastPushed)
+                        else "No location sent yet",
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)
+                    )
+                    OutlinedButton(onClick = {
+                        if (!pushing) {
+                            pushing = true
+                            scope.launch {
+                                val loc = com.school.attendance.util.getCurrentLocation(context)
+                                val teacherId = prefs.loggedInTeacherId
+                                if (loc != null && teacherId > 0) {
+                                    val repo = Repository(context)
+                                    repo.recordLocationPing(teacherId, loc.latitude, loc.longitude, loc.speed)
+                                    val bus = repo.busNumberForDriver(teacherId)
+                                    if (bus != null) com.school.attendance.sync.LocationSync.flushQueue(context, teacherId, bus)
+                                    lastPushed = prefs.lastLocationPushAt
+                                }
+                                pushing = false
+                            }
+                        }
+                    }) { Text(if (pushing) "Pushing..." else "Push location now") }
                 }
             }
             OutlinedTextField(
