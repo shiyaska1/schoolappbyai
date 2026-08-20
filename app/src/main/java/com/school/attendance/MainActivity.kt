@@ -16,21 +16,29 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.school.attendance.data.AppPrefs
 import com.school.attendance.ui.theme.SchoolAttendanceTheme
+import com.school.attendance.ui.screens.AccountsScreen
 import com.school.attendance.ui.screens.AttendanceScreen
 import com.school.attendance.ui.screens.BusesScreen
+import com.school.attendance.ui.screens.CustomersScreen
 import com.school.attendance.ui.screens.DashboardScreen
+import com.school.attendance.ui.screens.ExpensesScreen
+import com.school.attendance.ui.screens.FinancialReportsScreen
 import com.school.attendance.ui.screens.HolidaysScreen
 import com.school.attendance.ui.screens.JoinScreen
+import com.school.attendance.ui.screens.JournalEntryScreen
 import com.school.attendance.ui.screens.LicenseScreen
 import com.school.attendance.ui.screens.LiveLocationScreen
 import com.school.attendance.ui.screens.LoginScreen
 import com.school.attendance.ui.screens.MastersScreen
 import com.school.attendance.ui.screens.ParentDashboardScreen
 import com.school.attendance.ui.screens.PayrollScreen
+import com.school.attendance.ui.screens.PurchasesScreen
+import com.school.attendance.ui.screens.ReceiptsScreen
 import com.school.attendance.ui.screens.ReportsScreen
 import com.school.attendance.ui.screens.SelfAttendanceScreen
 import com.school.attendance.ui.screens.SettingsScreen
 import com.school.attendance.ui.screens.StudentsScreen
+import com.school.attendance.ui.screens.SuppliersScreen
 import com.school.attendance.ui.screens.SwitchToParentScreen
 import com.school.attendance.ui.screens.TeacherAttendanceScreen
 import com.school.attendance.ui.screens.TeachersScreen
@@ -79,6 +87,14 @@ object Routes {
     const val PARENT_DASHBOARD = "parentDashboard"
     const val SWITCH_PARENT = "switchToParent"
     const val VIEW_AS_PARENT = "viewAsParent"
+    const val ACCOUNTS = "accounts"
+    const val JOURNAL = "journal"
+    const val RECEIPTS = "receipts"
+    const val EXPENSES = "expenses"
+    const val CUSTOMERS = "customers"
+    const val SUPPLIERS = "suppliers"
+    const val PURCHASES = "purchases"
+    const val FINANCIAL_REPORTS = "financialReports"
 }
 
 @Composable
@@ -151,6 +167,14 @@ fun AppNav() {
             val studentId = backStackEntry.arguments?.getLong("studentId") ?: 0L
             ParentDashboardScreen(onLogout = {}, studentIdOverride = studentId, onBack = { nav.popBackStack() })
         }
+        composable(Routes.ACCOUNTS) { AccountsScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.JOURNAL) { JournalEntryScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.RECEIPTS) { ReceiptsScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.EXPENSES) { ExpensesScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.CUSTOMERS) { CustomersScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.SUPPLIERS) { SuppliersScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.PURCHASES) { PurchasesScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.FINANCIAL_REPORTS) { FinancialReportsScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { nav.popBackStack() },

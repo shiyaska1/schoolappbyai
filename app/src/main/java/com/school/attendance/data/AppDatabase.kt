@@ -6,12 +6,18 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [Course::class, Division::class, Subject::class, Teacher::class, Student::class, AttendanceRecord::class, Holiday::class, TeacherAttendanceRecord::class, Message::class, LocationPing::class, Bus::class],
-    version = 5,
+    entities = [
+        Course::class, Division::class, Subject::class, Teacher::class, Student::class, AttendanceRecord::class,
+        Holiday::class, TeacherAttendanceRecord::class, Message::class, LocationPing::class, Bus::class,
+        AccountGroup::class, AccountHead::class, CostCenter::class, JournalEntry::class, JournalLine::class,
+        Receipt::class, Expense::class, Customer::class, Supplier::class, Purchase::class
+    ],
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): SchoolDao
+    abstract fun accountingDao(): AccountingDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

@@ -13,7 +13,7 @@ object LocalBackup {
 
     suspend fun restore(context: Context, uri: Uri, merge: Boolean): MergeResult {
         val json = context.contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
-        if (!merge) Repository(context).wipeAll()
+        if (!merge) { Repository(context).wipeAll(); AccountingRepository(context).wipeAll() }
         return AttendanceSync.importJson(context, json)
     }
 }

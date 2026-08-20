@@ -8,12 +8,17 @@ data class MergeResult(
     var coursesAdded: Int = 0, var divisionsAdded: Int = 0, var subjectsAdded: Int = 0,
     var teachersAdded: Int = 0, var studentsAdded: Int = 0, var attendanceAdded: Int = 0,
     var attendanceUpdated: Int = 0, var holidaysAdded: Int = 0, var busesAdded: Int = 0,
-    var teacherAttendanceAdded: Int = 0, var teacherAttendanceUpdated: Int = 0
+    var teacherAttendanceAdded: Int = 0, var teacherAttendanceUpdated: Int = 0,
+    var accountGroupsAdded: Int = 0, var accountHeadsAdded: Int = 0, var costCentersAdded: Int = 0,
+    var journalEntriesAdded: Int = 0, var receiptsAdded: Int = 0, var expensesAdded: Int = 0,
+    var customersAdded: Int = 0, var suppliersAdded: Int = 0, var purchasesAdded: Int = 0
 ) {
     val summary: String
         get() = "+$coursesAdded courses, +$divisionsAdded divisions, +$subjectsAdded subjects, +$busesAdded buses, " +
             "+$teachersAdded teachers, +$studentsAdded students, +$attendanceAdded/$attendanceUpdated attendance, " +
-            "+$teacherAttendanceAdded/$teacherAttendanceUpdated staff attendance, +$holidaysAdded holidays"
+            "+$teacherAttendanceAdded/$teacherAttendanceUpdated staff attendance, +$holidaysAdded holidays, " +
+            "+$accountGroupsAdded groups, +$accountHeadsAdded heads, +$journalEntriesAdded journals, " +
+            "+$receiptsAdded receipts, +$expensesAdded expenses, +$customersAdded customers, +$suppliersAdded suppliers, +$purchasesAdded purchases"
 }
 
 /**
@@ -66,6 +71,8 @@ object AttendanceSync {
                 .put("pin", it.pin).put("isAdmin", it.isAdmin).put("isTeachingStaff", it.isTeachingStaff)
                 .put("monthlySalary", it.monthlySalary).put("canSelfMarkAttendance", it.canSelfMarkAttendance)
                 .put("busNumber", busNumber[it.busId] ?: "")
+                .put("aadharNumber", it.aadharNumber).put("bloodGroup", it.bloodGroup).put("religion", it.religion)
+                .put("secondMobile", it.secondMobile).put("email", it.email).put("permanentAddress", it.permanentAddress)
         }))
         root.put("students", JSONArray(students.map { s ->
             JSONObject().put("name", s.name).put("rollNumber", s.rollNumber)
@@ -76,6 +83,9 @@ object AttendanceSync {
                 .put("admissionDateMillis", s.admissionDateMillis)
                 .put("busNumber", busNumber[s.busId] ?: "")
                 .put("username", s.username).put("password", s.password)
+                .put("aadharNumber", s.aadharNumber).put("bloodGroup", s.bloodGroup).put("religion", s.religion)
+                .put("secondMobile", s.secondMobile).put("email", s.email).put("permanentAddress", s.permanentAddress)
+                .put("admissionNumber", s.admissionNumber)
         }))
         root.put("attendance", JSONArray(attendance.map { a ->
             val s = studentInfo[a.studentId]
@@ -94,6 +104,63 @@ object AttendanceSync {
         root.put("holidays", JSONArray(holidays.map { h ->
             JSONObject().put("dateMillis", h.dateMillis).put("name", h.name).put("source", h.source)
                 .put("divisionName", if (h.divisionId == 0L) "" else (divisionName[h.divisionId] ?: ""))
+        }))
+
+        // ---- accounting ----
+        val acc = AccountingRepository(context)
+        val groups = acc.allGroups()
+        val heads = acc.allHeads()
+        val costCenters = acc.allCostCenters()
+        val jEntries = acc.allJournalEntries()
+        val jLines = acc.allJournalLines()
+        val receipts = acc.allReceipts()
+        val expenses = acc.allExpenses()
+        val customers = acc.allCustomers()
+        val suppliers = acc.allSuppliers()
+        val purchases = acc.allPurchases()
+
+        val groupName = groups.associate { it.id to it.name }
+        val headName = heads.associate { it.id to it.name }
+
+        root.put("accountGroups", JSONArray(groups.map {
+            JSONObject().put("name", it.name).put("nature", it.nature.name).put("isSystem", it.isSystem)
+                .put("parentGroupName", it.parentGroupId?.let { pid -> groupName[pid] } ?: "")
+        }))
+        root.put("accountHeads", JSONArray(heads.map {
+            JSONObject().put("name", it.name).put("groupName", groupName[it.groupId] ?: "")
+                .put("openingBalance", it.openingBalance).put("openingIsDebit", it.openingIsDebit).put("isSystem", it.isSystem)
+        }))
+        root.put("costCenters", JSONArray(costCenters.map { JSONObject().put("name", it.name) }))
+        root.put("journalEntries", JSONArray(jEntries.map { e ->
+            JSONObject().put("voucherNo", e.voucherNo).put("dateMillis", e.dateMillis).put("narration", e.narration)
+                .put("cashMode", e.cashMode).put("cashIsIn", e.cashIsIn).put("cashAmount", e.cashAmount)
+                .put("voucherType", e.voucherType).put("updatedAtMillis", e.updatedAtMillis)
+                .put("lines", JSONArray(jLines.filter { it.entryId == e.id }.map { l ->
+                    JSONObject().put("headName", headName[l.headId] ?: l.headName).put("amount", l.amount).put("isDebit", l.isDebit)
+                }))
+        }))
+        root.put("receipts", JSONArray(receipts.map { r ->
+            val s = studentInfo[r.studentId]
+            JSONObject().put("receiptNo", r.receiptNo).put("dateMillis", r.dateMillis)
+                .put("studentRoll", s?.rollNumber ?: "").put("studentName", r.studentName.ifBlank { s?.name ?: "" })
+                .put("divisionName", if (s != null) (divisionName[s.divisionId] ?: "") else "")
+                .put("payFrom", r.payFrom).put("amount", r.amount).put("paymentMode", r.paymentMode)
+                .put("toAccountName", headName[r.toAccountId] ?: "").put("narration", r.narration)
+                .put("deviceId", r.deviceId).put("updatedAtMillis", r.updatedAtMillis)
+        }))
+        root.put("expenses", JSONArray(expenses.map { e ->
+            JSONObject().put("voucherNo", e.voucherNo).put("dateMillis", e.dateMillis).put("description", e.description)
+                .put("amount", e.amount).put("paymentMode", e.paymentMode).put("payTo", e.payTo)
+                .put("fromAccountName", headName[e.fromAccountId] ?: "")
+                .put("deviceId", e.deviceId).put("updatedAtMillis", e.updatedAtMillis)
+        }))
+        root.put("customers", JSONArray(customers.map { JSONObject().put("name", it.name).put("phone", it.phone).put("address", it.address) }))
+        root.put("suppliers", JSONArray(suppliers.map { JSONObject().put("name", it.name).put("phone", it.phone).put("address", it.address) }))
+        root.put("purchases", JSONArray(purchases.map { p ->
+            JSONObject().put("purchaseNo", p.purchaseNo).put("dateMillis", p.dateMillis).put("supplierName", p.supplierName)
+                .put("description", p.description).put("amount", p.amount).put("paymentMethod", p.paymentMethod)
+                .put("fromAccountName", headName[p.fromAccountId] ?: "")
+                .put("deviceId", p.deviceId).put("updatedAtMillis", p.updatedAtMillis)
         }))
         return root.toString()
     }
@@ -135,10 +202,33 @@ object AttendanceSync {
             return id
         }
 
+        val busIdCache = repo.busesOnce().associate { it.busNumber.trim().lowercase() to it.id }.toMutableMap()
+        fun busId(busNumber: String): Long {
+            if (busNumber.isBlank()) return 0
+            val key = busNumber.trim().lowercase()
+            busIdCache[key]?.let { return it }
+            val id = kotlinx.coroutines.runBlocking { repo.upsertBus(Bus(busNumber = busNumber, updatedAtMillis = now)) }
+            busIdCache[key] = id
+            result.busesAdded++
+            return id
+        }
+        root.optJSONArray("buses")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val id = busId(o.optString("busNumber"))
+                val route = o.optString("route")
+                if (id != 0L && route.isNotBlank()) {
+                    kotlinx.coroutines.runBlocking { repo.upsertBus(Bus(id = id, busNumber = o.optString("busNumber"), route = route, updatedAtMillis = now)) }
+                }
+            }
+        }
+
         val teacherIdCache = existingTeachers.mapValues { it.value.id }.toMutableMap()
         fun teacherId(
             phone: String, name: String, designation: String = "", pin: String = "", isAdmin: Boolean = false,
-            isTeachingStaff: Boolean = true, monthlySalary: Double = 0.0
+            isTeachingStaff: Boolean = true, monthlySalary: Double = 0.0, busNumber: String = "",
+            aadharNumber: String = "", bloodGroup: String = "", religion: String = "",
+            secondMobile: String = "", email: String = "", permanentAddress: String = ""
         ): Long {
             if (name.isBlank() && phone.isBlank()) return 0
             val key = teacherKey(phone, name)
@@ -146,7 +236,9 @@ object AttendanceSync {
             val id = kotlinx.coroutines.runBlocking {
                 repo.upsertTeacher(Teacher(
                     name = name, phone = phone, designation = designation, pin = pin, isAdmin = isAdmin,
-                    isTeachingStaff = isTeachingStaff, monthlySalary = monthlySalary, updatedAtMillis = now
+                    isTeachingStaff = isTeachingStaff, monthlySalary = monthlySalary, busId = busId(busNumber), updatedAtMillis = now,
+                    aadharNumber = aadharNumber, bloodGroup = bloodGroup, religion = religion,
+                    secondMobile = secondMobile, email = email, permanentAddress = permanentAddress
                 ))
             }
             teacherIdCache[key] = id
@@ -175,7 +267,10 @@ object AttendanceSync {
                 val o = arr.getJSONObject(i)
                 teacherId(
                     o.optString("phone"), o.optString("name"), o.optString("designation"), o.optString("pin"),
-                    o.optBoolean("isAdmin"), o.optBoolean("isTeachingStaff", true), o.optDouble("monthlySalary", 0.0)
+                    o.optBoolean("isAdmin"), o.optBoolean("isTeachingStaff", true), o.optDouble("monthlySalary", 0.0),
+                    o.optString("busNumber"),
+                    o.optString("aadharNumber"), o.optString("bloodGroup"), o.optString("religion"),
+                    o.optString("secondMobile"), o.optString("email"), o.optString("permanentAddress")
                 )
             }
         }
@@ -206,7 +301,11 @@ object AttendanceSync {
                             guardianName = o.optString("guardianName"), guardianPhone = o.optString("guardianPhone"),
                             guardianWhatsapp = o.optString("guardianWhatsapp"),
                             gender = o.optString("gender"), address = o.optString("address"),
-                            admissionDateMillis = o.optLong("admissionDateMillis"), updatedAtMillis = now
+                            admissionDateMillis = o.optLong("admissionDateMillis"),
+                            busId = busId(o.optString("busNumber")), username = o.optString("username"), password = o.optString("password"),
+                            aadharNumber = o.optString("aadharNumber"), bloodGroup = o.optString("bloodGroup"), religion = o.optString("religion"),
+                            secondMobile = o.optString("secondMobile"), email = o.optString("email"), permanentAddress = o.optString("permanentAddress"),
+                            admissionNumber = o.optString("admissionNumber"), updatedAtMillis = now
                         )
                     )
                 }
@@ -260,6 +359,207 @@ object AttendanceSync {
                     }
                     result.holidaysAdded++
                 }
+            }
+        }
+
+        root.optJSONArray("teacherAttendance")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val teacherId = teacherIdCache[teacherKey(o.optString("teacherPhone"), "")] ?: continue
+                val dateMillis = o.optLong("dateMillis")
+                val incomingUpdatedAt = o.optLong("updatedAtMillis")
+                val existing = kotlinx.coroutines.runBlocking { dao.teacherAttendanceFor(teacherId, dateMillis, dateMillis) }.firstOrNull()
+                if (existing == null) {
+                    kotlinx.coroutines.runBlocking {
+                        dao.insertTeacherAttendance(listOf(TeacherAttendanceRecord(
+                            dateMillis = dateMillis, teacherId = teacherId, present = o.optBoolean("present", true),
+                            markedByAdminId = teacherIdCache[teacherKey(o.optString("markedByAdminPhone"), "")] ?: 0L,
+                            selfMarked = o.optBoolean("selfMarked", false), deviceId = o.optString("deviceId"), updatedAtMillis = incomingUpdatedAt
+                        )))
+                    }
+                    result.teacherAttendanceAdded++
+                } else if (incomingUpdatedAt > existing.updatedAtMillis) {
+                    kotlinx.coroutines.runBlocking { dao.insertTeacherAttendance(listOf(existing.copy(present = o.optBoolean("present", true), updatedAtMillis = incomingUpdatedAt))) }
+                    result.teacherAttendanceUpdated++
+                }
+            }
+        }
+
+        // ---- accounting ----
+        val acc = AccountingRepository(context)
+        val existingGroups = acc.allGroups().associateBy { it.name.trim().lowercase() }.toMutableMap()
+        val groupIdCache = existingGroups.mapValues { it.value.id }.toMutableMap()
+        fun groupId(name: String, nature: AccountNature, parentName: String): Long {
+            if (name.isBlank()) return 0
+            val key = name.trim().lowercase()
+            groupIdCache[key]?.let { return it }
+            val parentId = if (parentName.isBlank()) null else groupIdCache[parentName.trim().lowercase()]
+            val id = kotlinx.coroutines.runBlocking { acc.saveGroup(AccountGroup(name = name, nature = nature, parentGroupId = parentId, updatedAtMillis = now)) }
+            groupIdCache[key] = id
+            result.accountGroupsAdded++
+            return id
+        }
+        root.optJSONArray("accountGroups")?.let { arr ->
+            // Two passes so a child group can resolve its parent even if the parent appears later.
+            for (pass in 0..1) for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val nature = runCatching { AccountNature.valueOf(o.optString("nature")) }.getOrDefault(AccountNature.ASSET)
+                val parent = o.optString("parentGroupName")
+                if (pass == 0 && parent.isNotBlank()) continue
+                groupId(o.optString("name"), nature, parent)
+            }
+        }
+
+        val existingHeads = acc.allHeads().associateBy { it.name.trim().lowercase() }.toMutableMap()
+        val headIdCache = existingHeads.mapValues { it.value.id }.toMutableMap()
+        fun headId(name: String, groupNameForHead: String): Long {
+            if (name.isBlank()) return 0
+            val key = name.trim().lowercase()
+            headIdCache[key]?.let { return it }
+            val gid = groupIdCache[groupNameForHead.trim().lowercase()] ?: return 0
+            val id = kotlinx.coroutines.runBlocking { acc.saveHead(AccountHead(name = name, groupId = gid, updatedAtMillis = now)) }
+            headIdCache[key] = id
+            result.accountHeadsAdded++
+            return id
+        }
+        root.optJSONArray("accountHeads")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val key = o.optString("name").trim().lowercase()
+                if (headIdCache.containsKey(key)) continue
+                val gid = groupIdCache[o.optString("groupName").trim().lowercase()] ?: continue
+                val id = kotlinx.coroutines.runBlocking {
+                    acc.saveHead(AccountHead(
+                        name = o.optString("name"), groupId = gid, openingBalance = o.optDouble("openingBalance", 0.0),
+                        openingIsDebit = o.optBoolean("openingIsDebit", true), updatedAtMillis = now
+                    ))
+                }
+                headIdCache[key] = id
+                result.accountHeadsAdded++
+            }
+        }
+
+        val costCenterIdCache = acc.allCostCenters().associate { it.name.trim().lowercase() to it.id }.toMutableMap()
+        root.optJSONArray("costCenters")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val name = arr.getJSONObject(i).optString("name")
+                val key = name.trim().lowercase()
+                if (costCenterIdCache.containsKey(key)) continue
+                costCenterIdCache[key] = kotlinx.coroutines.runBlocking { acc.saveCostCenter(CostCenter(name = name, updatedAtMillis = now)) }
+                result.costCentersAdded++
+            }
+        }
+
+        val existingJournalNos = acc.allJournalEntries().map { it.voucherNo }.toMutableSet()
+        root.optJSONArray("journalEntries")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val vch = o.optString("voucherNo")
+                if (vch.isBlank() || existingJournalNos.contains(vch)) continue
+                val lines = o.optJSONArray("lines")?.let { larr ->
+                    (0 until larr.length()).mapNotNull { j ->
+                        val lo = larr.getJSONObject(j)
+                        val hName = lo.optString("headName")
+                        val hId = headIdCache[hName.trim().lowercase()] ?: return@mapNotNull null
+                        JournalLine(entryId = 0, headId = hId, headName = hName, amount = lo.optDouble("amount", 0.0), isDebit = lo.optBoolean("isDebit", true))
+                    }
+                } ?: emptyList()
+                if (lines.isEmpty()) continue
+                kotlinx.coroutines.runBlocking {
+                    acc.saveJournal(JournalEntry(
+                        voucherNo = vch, dateMillis = o.optLong("dateMillis"), narration = o.optString("narration"),
+                        cashMode = o.optString("cashMode"), cashIsIn = o.optBoolean("cashIsIn", true), cashAmount = o.optDouble("cashAmount", 0.0),
+                        voucherType = o.optString("voucherType", JournalVoucherType.JOURNAL), updatedAtMillis = o.optLong("updatedAtMillis")
+                    ), lines)
+                }
+                existingJournalNos.add(vch)
+                result.journalEntriesAdded++
+            }
+        }
+
+        val existingReceiptNos = acc.allReceipts().map { it.receiptNo }.toMutableSet()
+        root.optJSONArray("receipts")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val no = o.optString("receiptNo")
+                if (no.isBlank() || existingReceiptNos.contains(no)) continue
+                val divId = resolveDivisionId(o.optString("divisionName"))
+                val sKey = studentKey(divId.toString(), o.optString("studentRoll"), o.optString("studentName"))
+                kotlinx.coroutines.runBlocking {
+                    acc.saveReceipt(Receipt(
+                        receiptNo = no, dateMillis = o.optLong("dateMillis"), studentId = studentIdCache[sKey] ?: 0L,
+                        studentName = o.optString("studentName"), payFrom = o.optString("payFrom"), amount = o.optDouble("amount", 0.0),
+                        paymentMode = o.optString("paymentMode", "Cash"), toAccountId = headIdCache[o.optString("toAccountName").trim().lowercase()] ?: 0L,
+                        narration = o.optString("narration"), deviceId = o.optString("deviceId"), updatedAtMillis = o.optLong("updatedAtMillis")
+                    ))
+                }
+                existingReceiptNos.add(no)
+                result.receiptsAdded++
+            }
+        }
+
+        val existingExpenseNos = acc.allExpenses().map { it.voucherNo }.toMutableSet()
+        root.optJSONArray("expenses")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val no = o.optString("voucherNo")
+                if (no.isBlank() || existingExpenseNos.contains(no)) continue
+                kotlinx.coroutines.runBlocking {
+                    acc.saveExpense(Expense(
+                        voucherNo = no, dateMillis = o.optLong("dateMillis"), description = o.optString("description"),
+                        amount = o.optDouble("amount", 0.0), paymentMode = o.optString("paymentMode", "Cash"), payTo = o.optString("payTo"),
+                        fromAccountId = headIdCache[o.optString("fromAccountName").trim().lowercase()] ?: 0L,
+                        deviceId = o.optString("deviceId"), updatedAtMillis = o.optLong("updatedAtMillis")
+                    ))
+                }
+                existingExpenseNos.add(no)
+                result.expensesAdded++
+            }
+        }
+
+        val existingCustomers = acc.allCustomers().map { "${it.name.trim().lowercase()}|${it.phone.trim()}" }.toMutableSet()
+        root.optJSONArray("customers")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val key = "${o.optString("name").trim().lowercase()}|${o.optString("phone").trim()}"
+                if (existingCustomers.contains(key)) continue
+                kotlinx.coroutines.runBlocking { acc.saveCustomer(Customer(name = o.optString("name"), phone = o.optString("phone"), address = o.optString("address"), updatedAtMillis = now)) }
+                existingCustomers.add(key)
+                result.customersAdded++
+            }
+        }
+
+        val existingSuppliers = acc.allSuppliers().map { "${it.name.trim().lowercase()}|${it.phone.trim()}" }.toMutableSet()
+        root.optJSONArray("suppliers")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val key = "${o.optString("name").trim().lowercase()}|${o.optString("phone").trim()}"
+                if (existingSuppliers.contains(key)) continue
+                kotlinx.coroutines.runBlocking { acc.saveSupplier(Supplier(name = o.optString("name"), phone = o.optString("phone"), address = o.optString("address"), updatedAtMillis = now)) }
+                existingSuppliers.add(key)
+                result.suppliersAdded++
+            }
+        }
+
+        val supplierIdByName = acc.allSuppliers().associate { it.name.trim().lowercase() to it.id }
+        val existingPurchaseNos = acc.allPurchases().map { it.purchaseNo }.toMutableSet()
+        root.optJSONArray("purchases")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val no = o.optString("purchaseNo")
+                if (no.isBlank() || existingPurchaseNos.contains(no)) continue
+                kotlinx.coroutines.runBlocking {
+                    acc.savePurchase(Purchase(
+                        purchaseNo = no, dateMillis = o.optLong("dateMillis"),
+                        supplierId = supplierIdByName[o.optString("supplierName").trim().lowercase()] ?: 0L,
+                        supplierName = o.optString("supplierName"), description = o.optString("description"),
+                        amount = o.optDouble("amount", 0.0), paymentMethod = o.optString("paymentMethod", "Credit"),
+                        fromAccountId = headIdCache[o.optString("fromAccountName").trim().lowercase()] ?: 0L,
+                        deviceId = o.optString("deviceId"), updatedAtMillis = o.optLong("updatedAtMillis")
+                    ))
+                }
+                existingPurchaseNos.add(no)
+                result.purchasesAdded++
             }
         }
 

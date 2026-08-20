@@ -64,7 +64,17 @@ data class Teacher(
      * Independent of [busId] — a driver doesn't need this on for their own bus to be tracked. */
     val canViewBusLocation: Boolean = false,
     val active: Boolean = true,
-    val updatedAtMillis: Long = 0
+    val updatedAtMillis: Long = 0,
+    // ---- optional identity/contact details ----
+    val aadharNumber: String = "",
+    val bloodGroup: String = "",
+    val religion: String = "",
+    /** Optional second contact number, distinct from [phone]. */
+    val secondMobile: String = "",
+    val email: String = "",
+    /** Only filled in if different from the main address collected elsewhere. */
+    val permanentAddress: String = "",
+    val photoPath: String = ""
 )
 
 @Entity(tableName = "students")
@@ -90,7 +100,18 @@ data class Student(
     val username: String = "",
     val password: String = "",
     val active: Boolean = true,
-    val updatedAtMillis: Long = 0
+    val updatedAtMillis: Long = 0,
+    // ---- optional identity/contact details ----
+    val aadharNumber: String = "",
+    val bloodGroup: String = "",
+    val religion: String = "",
+    /** Optional second guardian contact number, distinct from [guardianPhone]. */
+    val secondMobile: String = "",
+    val email: String = "",
+    /** Only filled in if different from [address]. */
+    val permanentAddress: String = "",
+    /** School's own admission register number — distinct from [rollNumber] (the class roll list). */
+    val admissionNumber: String = ""
 )
 
 /** One student's attendance mark for one calendar day (and session, if the school marks

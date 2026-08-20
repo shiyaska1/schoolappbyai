@@ -19,20 +19,28 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.Sync
@@ -91,7 +99,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private data class Tile(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val route: String, val section: String = "Transactions")
-private val SECTION_ORDER = listOf("Masters", "Transactions", "Reports")
+private val SECTION_ORDER = listOf("Masters", "Transactions", "Reports", "Accounts")
+private val ACCOUNTS_SUB_ORDER = listOf("Accounts/Masters", "Accounts/Transactions", "Accounts/Reports")
 
 @Composable
 private fun DashboardTile(tile: Tile, onClick: () -> Unit) {
@@ -178,7 +187,15 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Bus Location", Icons.Filled.LocationOn, Routes.LIVE_LOCATION, "Transactions"),
         Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports"),
-        Tile("Payroll", Icons.Filled.Payments, Routes.PAYROLL, "Reports")
+        Tile("Payroll", Icons.Filled.Payments, Routes.PAYROLL, "Reports"),
+        Tile("Chart of Accounts", Icons.Filled.AccountTree, Routes.ACCOUNTS, "Accounts/Masters"),
+        Tile("Customers", Icons.Filled.People, Routes.CUSTOMERS, "Accounts/Masters"),
+        Tile("Suppliers", Icons.Filled.LocalShipping, Routes.SUPPLIERS, "Accounts/Masters"),
+        Tile("Receipts", Icons.Filled.Receipt, Routes.RECEIPTS, "Accounts/Transactions"),
+        Tile("Expenses", Icons.Filled.MoneyOff, Routes.EXPENSES, "Accounts/Transactions"),
+        Tile("Purchases", Icons.Filled.ShoppingCart, Routes.PURCHASES, "Accounts/Transactions"),
+        Tile("Journal / Contra", Icons.Filled.Book, Routes.JOURNAL, "Accounts/Transactions"),
+        Tile("Financial Reports", Icons.Filled.BarChart, Routes.FINANCIAL_REPORTS, "Accounts/Reports")
     ) else listOfNotNull(
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         if (canSelfMark) Tile("My Attendance", Icons.Filled.MyLocation, Routes.SELF_ATTENDANCE, "Transactions") else null,
@@ -186,7 +203,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports")
     )
-    val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, true) } } }
+    val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, true) }; ACCOUNTS_SUB_ORDER.forEach { put(it, true) } } }
 
     Scaffold(topBar = {
         TopAppBar(
@@ -277,6 +294,38 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
             LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
                 if (showAdminTiles) {
                     SECTION_ORDER.forEach { section ->
+                        if (section == "Accounts") {
+                            val accTiles = tiles.filter { it.section.startsWith("Accounts/") }
+                            if (accTiles.isEmpty()) return@forEach
+                            val open = openSections[section] == true
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { openSections[section] = !open }.padding(top = 12.dp, bottom = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = MaterialTheme.colorScheme.primary)
+                                    Text("Accounts", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp))
+                                }
+                            }
+                            if (open) {
+                                ACCOUNTS_SUB_ORDER.forEach { sub ->
+                                    val subTiles = accTiles.filter { it.section == sub }
+                                    if (subTiles.isEmpty()) return@forEach
+                                    val subOpen = openSections[sub] == true
+                                    item(span = { GridItemSpan(maxLineSpan) }) {
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(start = 16.dp).clickable { openSections[sub] = !subOpen }.padding(top = 8.dp, bottom = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(if (subOpen) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = MaterialTheme.colorScheme.secondary)
+                                            Text(sub.removePrefix("Accounts/"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary, modifier = Modifier.padding(start = 4.dp))
+                                        }
+                                    }
+                                    if (subOpen) items(subTiles) { tile -> DashboardTile(tile) { onOpen(tile.route) } }
+                                }
+                            }
+                            return@forEach
+                        }
                         val sectionTiles = tiles.filter { it.section == section }
                         if (sectionTiles.isEmpty()) return@forEach
                         val open = openSections[section] == true
