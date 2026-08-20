@@ -19,9 +19,9 @@ if (!is_dir($dir)) mkdir($dir, 0775, true);
 $file = "$dir/$school.json";
 
 $all = read_json_file($file, []);
-if (!isset($all[$phone]) || !is_array($all[$phone])) $all[$phone] = [];
+if (!isset($all[$bus]) || !is_array($all[$bus])) $all[$bus] = [];
 foreach ($points as $pt) {
-    $all[$phone][] = [
+    $all[$bus][] = [
         'lat' => (float)($pt['lat'] ?? 0), 'lng' => (float)($pt['lng'] ?? 0),
         'speedMps' => (float)($pt['speedMps'] ?? 0), 'dateMillis' => (int)($pt['dateMillis'] ?? (microtime(true) * 1000)),
     ];
@@ -30,7 +30,7 @@ foreach ($points as $pt) {
 // history — drop anything older than 3 days regardless of whether an admin ever asked for it.
 $cutoff = (microtime(true) - 3 * 24 * 60 * 60) * 1000;
 foreach ($all as $p => $route) {
-    $all[$p] = array_values(array_filter($route, fn($pt) => ($pt['dateMillis'] ?? 0) >= $cutoff));
+    $all[$p] = array_values(array_filter($route, function ($pt) use ($cutoff) { return ($pt['dateMillis'] ?? 0) >= $cutoff; }));
 }
 write_json_file($file, $all);
 send_json(['ok' => true, 'accepted' => count($points)]);

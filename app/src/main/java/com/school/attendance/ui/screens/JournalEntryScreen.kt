@@ -2,6 +2,7 @@ package com.school.attendance.ui.screens
 
 import android.app.Application
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,7 +135,7 @@ private fun JournalDialog(initial: JournalEntry, initialLines: List<JournalLine>
         onDismissRequest = onDismiss,
         title = { Text(if (initial.id == 0L) "New voucher" else "Edit voucher") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = voucherType == JournalVoucherType.JOURNAL, onClick = { voucherType = JournalVoucherType.JOURNAL }, label = { Text("Journal") })
                     FilterChip(selected = voucherType == JournalVoucherType.CONTRA, onClick = { voucherType = JournalVoucherType.CONTRA }, label = { Text("Contra") })

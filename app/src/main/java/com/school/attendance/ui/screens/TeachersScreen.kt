@@ -3,6 +3,7 @@ package com.school.attendance.ui.screens
 import android.app.Application
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +11,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -46,6 +50,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -57,6 +62,7 @@ import com.school.attendance.data.Repository
 import com.school.attendance.data.Teacher
 import com.school.attendance.util.CsvExport
 import com.school.attendance.util.CsvImport
+import com.school.attendance.util.PhotoUtil
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -165,12 +171,23 @@ private fun TeacherDialog(initial: Teacher, buses: List<com.school.attendance.da
     var busId by remember { mutableStateOf(initial.busId) }
     var busMenu by remember { mutableStateOf(false) }
     val isDriver = designation.equals("Driver", ignoreCase = true)
+    var photoPath by remember { mutableStateOf(initial.photoPath) }
+    var aadhar by remember { mutableStateOf(initial.aadharNumber) }
+    var bloodGroup by remember { mutableStateOf(initial.bloodGroup) }
+    var religion by remember { mutableStateOf(initial.religion) }
+    var secondMobile by remember { mutableStateOf(initial.secondMobile) }
+    var email by remember { mutableStateOf(initial.email) }
+    var permanentAddress by remember { mutableStateOf(initial.permanentAddress) }
+    var showMore by remember { mutableStateOf(false) }
+    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) PhotoUtil.importCompressed(context, uri, "teacher_${initial.id}_${System.currentTimeMillis()}")?.let { photoPath = it }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial.id == 0L) "New teacher / staff" else "Edit teacher / staff") },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = phone, onValueChange = { phone = it.filter { c -> c.isDigit() } }, label = { Text("Phone") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 Box(Modifier.padding(top = 8.dp)) {
@@ -207,6 +224,23 @@ private fun TeacherDialog(initial: Teacher, buses: List<com.school.attendance.da
                         }
                     }
                 }
+
+                TextButton(onClick = { showMore = !showMore }, modifier = Modifier.padding(top = 8.dp)) { Text(if (showMore) "Hide more details" else "More details (photo, Aadhaar, blood group...)") }
+                if (showMore) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (photoPath.isNotBlank()) {
+                            val bmp = remember(photoPath) { android.graphics.BitmapFactory.decodeFile(photoPath)?.asImageBitmap() }
+                            bmp?.let { Image(it, "Photo", modifier = Modifier.size(56.dp)) }
+                        }
+                        TextButton(onClick = { photoLauncher.launch("image/*") }) { Text(if (photoPath.isBlank()) "Add photo" else "Change photo") }
+                    }
+                    OutlinedTextField(value = aadhar, onValueChange = { aadhar = it.filter { c -> c.isDigit() }.take(12) }, label = { Text("Aadhaar number") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    OutlinedTextField(value = bloodGroup, onValueChange = { bloodGroup = it }, label = { Text("Blood group") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    OutlinedTextField(value = religion, onValueChange = { religion = it }, label = { Text("Religion") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    OutlinedTextField(value = secondMobile, onValueChange = { secondMobile = it.filter { c -> c.isDigit() } }, label = { Text("Second mobile (optional)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    OutlinedTextField(value = permanentAddress, onValueChange = { permanentAddress = it }, label = { Text("Permanent address") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
             }
         },
         confirmButton = {
@@ -216,7 +250,9 @@ private fun TeacherDialog(initial: Teacher, buses: List<com.school.attendance.da
                     onSave(initial.copy(
                         name = name.trim(), phone = phone.trim(), designation = designation.trim(), pin = pin.trim(),
                         monthlySalary = salary.toDoubleOrNull() ?: 0.0, isAdmin = isAdmin, isTeachingStaff = isTeaching,
-                        canSelfMarkAttendance = canSelfMark, canViewBusLocation = canViewBus, busId = if (isDriver) busId else 0L
+                        canSelfMarkAttendance = canSelfMark, canViewBusLocation = canViewBus, busId = if (isDriver) busId else 0L,
+                        photoPath = photoPath, aadharNumber = aadhar.trim(), bloodGroup = bloodGroup.trim(), religion = religion.trim(),
+                        secondMobile = secondMobile.trim(), email = email.trim(), permanentAddress = permanentAddress.trim()
                     ))
                 }
             }) { Text("Save") }

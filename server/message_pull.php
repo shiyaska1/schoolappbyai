@@ -16,8 +16,8 @@ $device = param('device', 'device');
 $path = messages_dir() . "/$school.json";
 $pool = read_json_file($path, []);
 
-$mine = array_values(array_filter($pool, fn($m) => ($m['originDevice'] ?? '') === $device));
-$forMe = array_values(array_filter($pool, fn($m) => ($m['originDevice'] ?? '') !== $device));
+$mine = array_values(array_filter($pool, function ($m) use ($device) { return ($m['originDevice'] ?? '') === $device; }));
+$forMe = array_values(array_filter($pool, function ($m) use ($device) { return ($m['originDevice'] ?? '') !== $device; }));
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (empty($forMe)) send_json([]);
