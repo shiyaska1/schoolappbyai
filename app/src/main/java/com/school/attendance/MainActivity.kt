@@ -19,6 +19,7 @@ import com.school.attendance.ui.theme.SchoolAttendanceTheme
 import com.school.attendance.ui.screens.AccountsScreen
 import com.school.attendance.ui.screens.AttendanceScreen
 import com.school.attendance.ui.screens.BusesScreen
+import com.school.attendance.ui.screens.CredentialsScreen
 import com.school.attendance.ui.screens.CustomersScreen
 import com.school.attendance.ui.screens.DashboardScreen
 import com.school.attendance.ui.screens.ExpensesScreen
@@ -30,6 +31,7 @@ import com.school.attendance.ui.screens.LicenseScreen
 import com.school.attendance.ui.screens.LiveLocationScreen
 import com.school.attendance.ui.screens.LoginScreen
 import com.school.attendance.ui.screens.MastersScreen
+import com.school.attendance.ui.screens.MessagesScreen
 import com.school.attendance.ui.screens.ParentDashboardScreen
 import com.school.attendance.ui.screens.PayrollScreen
 import com.school.attendance.ui.screens.PurchasesScreen
@@ -95,6 +97,8 @@ object Routes {
     const val SUPPLIERS = "suppliers"
     const val PURCHASES = "purchases"
     const val FINANCIAL_REPORTS = "financialReports"
+    const val CREDENTIALS = "credentials"
+    const val MESSAGES = "messages"
 }
 
 @Composable
@@ -175,6 +179,8 @@ fun AppNav() {
         composable(Routes.SUPPLIERS) { SuppliersScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.PURCHASES) { PurchasesScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.FINANCIAL_REPORTS) { FinancialReportsScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.CREDENTIALS) { CredentialsScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.MESSAGES) { MessagesScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { nav.popBackStack() },

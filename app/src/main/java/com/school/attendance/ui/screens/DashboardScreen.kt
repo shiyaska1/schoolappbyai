@@ -29,10 +29,12 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Payments
@@ -181,11 +183,13 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Students", Icons.Filled.Groups, Routes.STUDENTS, "Masters"),
         Tile("Buses", Icons.Filled.DirectionsBus, Routes.BUSES, "Masters"),
         Tile("Holidays", Icons.Filled.EventBusy, Routes.HOLIDAYS, "Masters"),
+        Tile("Login Credentials", Icons.Filled.Key, Routes.CREDENTIALS, "Masters"),
         Tile("Settings", Icons.Filled.Settings, Routes.SETTINGS, "Masters"),
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         Tile("Staff Attendance", Icons.Filled.Badge, Routes.TEACHER_ATTENDANCE, "Transactions"),
         Tile("Bus Location", Icons.Filled.LocationOn, Routes.LIVE_LOCATION, "Transactions"),
         Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
+        Tile("Messages", Icons.Filled.Message, Routes.MESSAGES, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports"),
         Tile("Payroll", Icons.Filled.Payments, Routes.PAYROLL, "Reports"),
         Tile("Chart of Accounts", Icons.Filled.AccountTree, Routes.ACCOUNTS, "Accounts/Masters"),
@@ -201,6 +205,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         if (canSelfMark) Tile("My Attendance", Icons.Filled.MyLocation, Routes.SELF_ATTENDANCE, "Transactions") else null,
         if (canViewBus) Tile("Bus Location", Icons.Filled.LocationOn, Routes.LIVE_LOCATION, "Transactions") else null,
         Tile("Switch to Parent View", Icons.Filled.SwitchAccount, Routes.SWITCH_PARENT, "Transactions"),
+        Tile("Messages", Icons.Filled.Message, Routes.MESSAGES, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports")
     )
     val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, true) }; ACCOUNTS_SUB_ORDER.forEach { put(it, true) } } }
