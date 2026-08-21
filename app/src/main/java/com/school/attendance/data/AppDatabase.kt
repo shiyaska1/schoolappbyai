@@ -36,12 +36,11 @@ abstract class AppDatabase : RoomDatabase() {
                     // (username "admin", PIN "123456") rather than requiring a first-run setup step.
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        db.execSQL(
-                            "INSERT INTO teachers (name, phone, designation, isTeachingStaff, monthlySalary, pin, isAdmin, " +
-                                "canSelfMarkAttendance, busId, canViewBusLocation, active, updatedAtMillis, aadharNumber, " +
-                                "bloodGroup, religion, secondMobile, email, permanentAddress, photoPath, hiddenModules) VALUES (" +
-                                "'admin', '', 'Admin', 1, 0.0, '123456', 1, 0, 0, 0, 1, 0, '', '', '', '', '', '', '', '')"
-                        )
+                        val columns = "(name, phone, designation, isTeachingStaff, monthlySalary, pin, isAdmin, " +
+                            "canSelfMarkAttendance, busId, canViewBusLocation, active, updatedAtMillis, aadharNumber, " +
+                            "bloodGroup, religion, secondMobile, email, permanentAddress, photoPath, hiddenModules)"
+                        db.execSQL("INSERT INTO teachers $columns VALUES ('admin', '', 'Admin', 1, 0.0, '123456', 1, 0, 0, 0, 1, 0, '', '', '', '', '', '', '', '')")
+                        db.execSQL("INSERT INTO teachers $columns VALUES ('teacher', '', 'Teacher', 1, 0.0, '123456', 0, 0, 0, 0, 1, 0, '', '', '', '', '', '', '', '')")
                     }
                 })
                 .build().also { INSTANCE = it }

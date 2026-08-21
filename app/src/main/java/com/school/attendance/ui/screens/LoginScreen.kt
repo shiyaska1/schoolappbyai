@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +80,12 @@ fun LoginScreen(onLoggedIn: () -> Unit, onParentLoggedIn: () -> Unit, vm: LoginV
     var parentUsername by remember { mutableStateOf("") }
     var parentPassword by remember { mutableStateOf("") }
     var parentError by remember { mutableStateOf<String?>(null) }
+
+    // Pre-select the seeded "admin" account (see AppDatabase's onCreate seed) so a fresh install
+    // shows a PIN field immediately, without needing to know to open the picker first.
+    LaunchedEffect(teachers) {
+        if (selected == null) selected = teachers.firstOrNull { it.name.equals("admin", ignoreCase = true) }
+    }
 
     Box(Modifier.fillMaxSize().padding(24.dp)) {
         Column(Modifier.fillMaxWidth().align(Alignment.Center)) {
