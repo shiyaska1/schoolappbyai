@@ -1,8 +1,17 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+}
+
+fun readVersionCode(file: File): Int {
+    if (!file.exists()) file.writeText("versionCode=1\n")
+    val props = Properties().apply { file.inputStream().use { s -> load(s) } }
+    return props.getProperty("versionCode", "1").toIntOrNull() ?: 1
 }
 
 android {
@@ -13,9 +22,11 @@ android {
         applicationId = "com.shiyaska.schoolmanagement"
         minSdk = 26
         targetSdk = 36
-        // CI sets VERSION_CODE per build (see .github/workflows/build.yml and release.yml) so every
-        // APK/AAB gets a unique, always-increasing code without hand-editing this file each time.
-        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
+        // A single persisted counter (version.properties) is the one source of truth for
+        // versionCode — bumped by "bumpVersionCode" after every bundleRelease, whether that's run
+        // locally or by CI (see .github/workflows/release.yml), so a local AAB and a CI-built one
+        // can never collide or go backwards. VERSION_CODE env var still overrides, if ever needed.
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: readVersionCode(rootProject.file("version.properties"))
         versionName = "0.1.0"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -72,6 +83,17 @@ android {
         compose = true
     }
 }
+
+tasks.register("bumpVersionCode") {
+    doLast {
+        val file = rootProject.file("version.properties")
+        val current = readVersionCode(file)
+        file.writeText("versionCode=${current + 1}\n")
+        println("version.properties: versionCode bumped to ${current + 1} for the next AAB build")
+    }
+}
+// Only bumps after bundleRelease actually succeeds — a failed build never burns a version code.
+tasks.matching { it.name == "bundleRelease" }.configureEach { finalizedBy("bumpVersionCode") }
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
