@@ -22,7 +22,12 @@ fun BusMapView(markers: List<MapMarker>, modifier: Modifier = Modifier) {
                 webViewClient = WebViewClient()
             }
         },
-        update = { webView -> webView.loadDataWithBaseURL(null, buildHtml(markers), "text/html", "utf-8", null) }
+        update = { webView ->
+            // A null/blank base URL leaves the page on an opaque "about:blank"-like origin where
+            // some WebView versions silently refuse to fetch the CDN's <script>/<link> tags — no
+            // error, just nothing rendering. A real https origin avoids that.
+            webView.loadDataWithBaseURL("https://localhost/", buildHtml(markers), "text/html", "utf-8", null)
+        }
     )
 }
 
