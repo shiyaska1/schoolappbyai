@@ -3,6 +3,7 @@ package com.school.attendance.ui.screens
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,7 +135,7 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
         if (allBusesMode) return@LaunchedEffect
         val bus = selected ?: return@LaunchedEffect
         while (true) {
-            kotlinx.coroutines.delay(15_000)
+            kotlinx.coroutines.delay(8_000)
             fix = LocationSync.pullLatest(context, bus.busNumber)
         }
     }
@@ -143,7 +144,7 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
         while (true) {
             allFixes = buses.map { b -> b to LocationSync.pullLatest(context, b.busNumber) }
             driverInfoByBus = buses.associate { it.id to vm.driverInfoFor(it.id) }
-            kotlinx.coroutines.delay(15_000)
+            kotlinx.coroutines.delay(8_000)
         }
     }
 
@@ -205,10 +206,12 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
 
                 if (allBusMarkers.isNotEmpty()) {
                     Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                        BusMapView(allBusMarkers, modifier = Modifier.fillMaxWidth().height(280.dp))
-                        IconButton(onClick = { showFullscreen = true }, modifier = Modifier.align(Alignment.TopEnd)) {
-                            Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White)
-                        }
+                        BusMapView(allBusMarkers, modifier = Modifier.fillMaxWidth().height(380.dp))
+                        IconButton(
+                            onClick = { showFullscreen = true },
+                            modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
+                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
+                        ) { Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White) }
                     }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
@@ -277,13 +280,15 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
                 val f = fix!!
                 Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     if (route.isNotEmpty()) {
-                        BusRouteMapView(selectedMarker, routeTrail, modifier = Modifier.fillMaxWidth().height(240.dp))
+                        BusRouteMapView(selectedMarker, routeTrail, modifier = Modifier.fillMaxWidth().height(400.dp))
                     } else {
-                        BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxWidth().height(240.dp))
+                        BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxWidth().height(400.dp))
                     }
-                    IconButton(onClick = { showFullscreen = true }, modifier = Modifier.align(Alignment.TopEnd)) {
-                        Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White)
-                    }
+                    IconButton(
+                        onClick = { showFullscreen = true },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
+                    ) { Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White) }
                 }
                 Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     Column(Modifier.padding(12.dp)) {
