@@ -28,8 +28,8 @@ foreach ($points as $pt) {
     );
 }
 // Weak/small-storage hosting: never let a route grow unbounded just because nobody fetched the
-// history — drop anything older than 3 days regardless of whether an admin ever asked for it.
-$cutoff = (microtime(true) - 3 * 24 * 60 * 60) * 1000;
+// history — drop anything older than 1 day regardless of whether an admin ever asked for it.
+$cutoff = (microtime(true) - 1 * 24 * 60 * 60) * 1000;
 foreach ($all as $p => $route) {
     $all[$p] = array_values(array_filter($route, function ($pt) use ($cutoff) { return (isset($pt['dateMillis']) ? $pt['dateMillis'] : 0) >= $cutoff; }));
 }

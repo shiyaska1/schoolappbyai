@@ -1,10 +1,10 @@
 <?php
 // Live location pull. Two modes, query param mode=latest|history (default latest):
-// - latest: returns just this person's newest point — read-only, nothing deleted. This is what
-//   a parent sees (current position, last-updated time, speed) — no route/history exposed to them.
-// - history: returns this person's whole route for the day, THEN clears it server-side — this
-//   keeps the (deliberately small/cheap) server from accumulating data nobody asked to keep.
-//   Meant for admin/teacher use only; the app itself is what enforces who can request it.
+// - latest: just this bus's newest point.
+// - history: this bus's whole route for the day.
+// Both are read-only — nothing is deleted here. Storage is capped by location_push.php instead,
+// which already drops any point older than 3 days on every push, so "history" and "latest" can
+// safely share the same stored array without one view destroying data the other needs.
 require_once __DIR__ . '/lib.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') send_json(array('error' => 'GET only'), 405);
@@ -22,7 +22,5 @@ if (empty($route)) send_json(array('error' => 'no location for this bus yet'), 4
 if ($mode === 'latest') {
     send_json(end($route));
 } else {
-    $all[$bus] = array();
-    write_json_file($file, $all);
     send_json($route);
 }

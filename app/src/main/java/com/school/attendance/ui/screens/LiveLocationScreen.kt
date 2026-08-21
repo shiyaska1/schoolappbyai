@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -41,9 +43,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,6 +71,9 @@ import java.util.Locale
  * up), so it's shown as a rough figure, not a promise. */
 private const val FALLBACK_SPEED_KMH = 20.0
 
+private val BUS_COLORS = listOf("#e53935", "#1e88e5", "#43a047", "#fb8c00", "#8e24aa", "#00897b", "#c0ca33", "#6d4c41")
+private fun busColor(index: Int): String = BUS_COLORS[index % BUS_COLORS.size]
+
 private fun isToday(millis: Long): Boolean {
     if (millis <= 0L) return false
     val a = Calendar.getInstance(); val b = Calendar.getInstance().apply { timeInMillis = millis }
@@ -76,8 +85,19 @@ class LiveLocationViewModel(app: Application) : AndroidViewModel(app) {
     val buses = repo.buses.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     var driverPhone: String? = null
         private set
+    var driverName: String? = null
+        private set
 
-    suspend fun loadDriverPhone(busId: Long) { driverPhone = repo.driverForBus(busId)?.phone }
+    suspend fun loadDriverPhone(busId: Long) {
+        val t = repo.driverForBus(busId)
+        driverPhone = t?.phone
+        driverName = t?.name
+    }
+
+    suspend fun driverInfoFor(busId: Long): Pair<String, String> {
+        val t = repo.driverForBus(busId)
+        return (t?.name ?: "") to (t?.phone ?: "")
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,6 +116,8 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
     var allBusesMode by remember { mutableStateOf(false) }
     var allFixes by remember { mutableStateOf<List<Pair<Bus, LocationFix?>>>(emptyList()) }
     var loadingAll by remember { mutableStateOf(false) }
+    var driverInfoByBus by remember { mutableStateOf<Map<Long, Pair<String, String>>>(emptyMap()) }
+    var showFullscreen by remember { mutableStateOf(false) }
 
     fun refreshSelected(bus: Bus) {
         scope.launch { fix = LocationSync.pullLatest(context, bus.busNumber); status = if (fix == null) "No location received yet" else null }
@@ -105,6 +127,57 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
         if (restrictToBusId != null && selected == null) {
             buses.firstOrNull { it.id == restrictToBusId }?.let { b -> selected = b; vm.loadDriverPhone(b.id); refreshSelected(b) }
         }
+    }
+
+    // Auto-refresh so a new point shows up on its own — no need to keep tapping "Refresh position".
+    LaunchedEffect(selected, allBusesMode) {
+        if (allBusesMode) return@LaunchedEffect
+        val bus = selected ?: return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(15_000)
+            fix = LocationSync.pullLatest(context, bus.busNumber)
+        }
+    }
+    LaunchedEffect(allBusesMode, buses) {
+        if (!allBusesMode) return@LaunchedEffect
+        while (true) {
+            allFixes = buses.map { b -> b to LocationSync.pullLatest(context, b.busNumber) }
+            driverInfoByBus = buses.associate { it.id to vm.driverInfoFor(it.id) }
+            kotlinx.coroutines.delay(15_000)
+        }
+    }
+
+    val selectedMarker = fix?.let { f ->
+        val (dName, dPhone) = vm.driverName.orEmpty() to vm.driverPhone.orEmpty()
+        MapMarker(selected?.busNumber ?: "", f.lat, f.lng, stale = false, color = busColor(0), driverName = dName, driverPhone = dPhone)
+    }
+    val allBusMarkers = allFixes.mapIndexedNotNull { i, (b, f) ->
+        f?.let {
+            val (dName, dPhone) = driverInfoByBus[b.id] ?: ("" to "")
+            MapMarker(b.busNumber, it.lat, it.lng, stale = !isToday(it.updatedAtMillis), color = busColor(i), driverName = dName, driverPhone = dPhone)
+        }
+    }
+    val routeMarker = selectedMarker
+    val routeTrail = route.dropLast(1).map { it.lat to it.lng }
+
+    if (showFullscreen) {
+        val screenW = LocalConfiguration.current.screenWidthDp
+        val screenH = LocalConfiguration.current.screenHeightDp
+        Dialog(onDismissRequest = { showFullscreen = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            Box(Modifier.fillMaxSize()) {
+                if (allBusesMode) {
+                    BusMapView(allBusMarkers, modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH)
+                } else if (route.isNotEmpty() && routeMarker != null) {
+                    BusRouteMapView(routeMarker, routeTrail, modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH)
+                } else if (selectedMarker != null) {
+                    BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH)
+                }
+                IconButton(onClick = { showFullscreen = false }, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                    Icon(Icons.Filled.Close, "Close", tint = androidx.compose.ui.graphics.Color.White)
+                }
+            }
+        }
+        return
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Bus Location") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
@@ -123,15 +196,20 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
                         loadingAll = true
                         scope.launch {
                             allFixes = buses.map { b -> b to LocationSync.pullLatest(context, b.busNumber) }
+                            driverInfoByBus = buses.associate { it.id to vm.driverInfoFor(it.id) }
                             loadingAll = false
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 ) { Text(if (loadingAll) "Loading..." else "Refresh all buses") }
 
-                val markers = allFixes.mapNotNull { (b, f) -> f?.let { MapMarker(b.busNumber, it.lat, it.lng, stale = !isToday(it.updatedAtMillis)) } }
-                if (markers.isNotEmpty()) {
-                    BusMapView(markers, modifier = Modifier.fillMaxWidth().height(280.dp).padding(top = 12.dp))
+                if (allBusMarkers.isNotEmpty()) {
+                    Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        BusMapView(allBusMarkers, modifier = Modifier.fillMaxWidth().height(280.dp))
+                        IconButton(onClick = { showFullscreen = true }, modifier = Modifier.align(Alignment.TopEnd)) {
+                            Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White)
+                        }
+                    }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 LazyColumn(Modifier.weight(1f)) {
@@ -195,11 +273,18 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
                         )
                     }
                 }
-            } else fix?.let { f ->
-                BusMapView(
-                    listOf(MapMarker(selected?.busNumber ?: "", f.lat, f.lng, stale = false)),
-                    modifier = Modifier.fillMaxWidth().height(240.dp).padding(top = 12.dp)
-                )
+            } else if (selectedMarker != null) {
+                val f = fix!!
+                Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    if (route.isNotEmpty()) {
+                        BusRouteMapView(selectedMarker, routeTrail, modifier = Modifier.fillMaxWidth().height(240.dp))
+                    } else {
+                        BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxWidth().height(240.dp))
+                    }
+                    IconButton(onClick = { showFullscreen = true }, modifier = Modifier.align(Alignment.TopEnd)) {
+                        Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White)
+                    }
+                }
                 Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     Column(Modifier.padding(12.dp)) {
                         val distKm = if (prefs.geoFenceSet) distanceMeters(f.lat, f.lng, prefs.schoolLatitude, prefs.schoolLongitude) / 1000.0 else null
