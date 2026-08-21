@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -29,6 +30,20 @@ abstract class AppDatabase : RoomDatabase() {
             // migrations once the schema is stable and there's real data to preserve.
             INSTANCE ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "school_attendance.db")
                 .fallbackToDestructiveMigration()
+                .addCallback(object : RoomDatabase.Callback() {
+                    // Fires exactly once, the moment the database file is first created (fresh
+                    // install) — seeds a default admin so there's always a real, predictable login
+                    // (username "admin", PIN "123456") rather than requiring a first-run setup step.
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        db.execSQL(
+                            "INSERT INTO teachers (name, phone, designation, isTeachingStaff, monthlySalary, pin, isAdmin, " +
+                                "canSelfMarkAttendance, busId, canViewBusLocation, active, updatedAtMillis, aadharNumber, " +
+                                "bloodGroup, religion, secondMobile, email, permanentAddress, photoPath, hiddenModules) VALUES (" +
+                                "'admin', '', 'Admin', 1, 0.0, '123456', 1, 0, 0, 0, 1, 0, '', '', '', '', '', '', '', '')"
+                        )
+                    }
+                })
                 .build().also { INSTANCE = it }
         }
     }
