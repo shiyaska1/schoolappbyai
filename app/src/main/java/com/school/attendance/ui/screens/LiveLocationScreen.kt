@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,9 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -75,6 +79,31 @@ private const val FALLBACK_SPEED_KMH = 20.0
 private val BUS_COLORS = listOf("#e53935", "#1e88e5", "#43a047", "#fb8c00", "#8e24aa", "#00897b", "#c0ca33", "#6d4c41")
 private fun busColor(index: Int): String = BUS_COLORS[index % BUS_COLORS.size]
 
+private fun openInGoogleMaps(context: android.content.Context, lat: Double, lng: Double, label: String) {
+    val gmmIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng(${Uri.encode(label)})")).apply {
+        setPackage("com.google.android.apps.maps")
+    }
+    if (gmmIntent.resolveActivity(context.packageManager) != null) {
+        context.startActivity(gmmIntent)
+    } else {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng")))
+    }
+}
+
+@Composable
+private fun ZoomControls(zoom: Int, onZoomIn: () -> Unit, onZoomOut: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        IconButton(
+            onClick = onZoomIn,
+            modifier = Modifier.background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
+        ) { Icon(Icons.Filled.Add, "Zoom in", tint = androidx.compose.ui.graphics.Color.White) }
+        IconButton(
+            onClick = onZoomOut,
+            modifier = Modifier.padding(top = 4.dp).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
+        ) { Icon(Icons.Filled.Remove, "Zoom out", tint = androidx.compose.ui.graphics.Color.White) }
+    }
+}
+
 private fun isToday(millis: Long): Boolean {
     if (millis <= 0L) return false
     val a = Calendar.getInstance(); val b = Calendar.getInstance().apply { timeInMillis = millis }
@@ -119,6 +148,8 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
     var loadingAll by remember { mutableStateOf(false) }
     var driverInfoByBus by remember { mutableStateOf<Map<Long, Pair<String, String>>>(emptyMap()) }
     var showFullscreen by remember { mutableStateOf(false) }
+    var zoom by remember { mutableStateOf(16) }
+    var allBusesZoom by remember { mutableStateOf(13) }
 
     fun refreshSelected(bus: Bus) {
         scope.launch { fix = LocationSync.pullLatest(context, bus.busNumber); status = if (fix == null) "No location received yet" else null }
@@ -129,6 +160,8 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
             buses.firstOrNull { it.id == restrictToBusId }?.let { b -> selected = b; vm.loadDriverPhone(b.id); refreshSelected(b) }
         }
     }
+    LaunchedEffect(selected) { zoom = 16 }
+    LaunchedEffect(route.isNotEmpty()) { if (route.isNotEmpty()) zoom = 13 }
 
     // Auto-refresh so a new point shows up on its own — no need to keep tapping "Refresh position".
     LaunchedEffect(selected, allBusesMode) {
@@ -167,15 +200,21 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
         Dialog(onDismissRequest = { showFullscreen = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Box(Modifier.fillMaxSize()) {
                 if (allBusesMode) {
-                    BusMapView(allBusMarkers, modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH)
+                    BusMapView(allBusMarkers, modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH, zoomOverride = allBusesZoom)
                 } else if (route.isNotEmpty() && routeMarker != null) {
-                    BusRouteMapView(routeMarker, routeTrail, modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH)
+                    BusRouteMapView(routeMarker, routeTrail, modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH, zoomOverride = zoom)
                 } else if (selectedMarker != null) {
-                    BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH)
+                    BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxSize(), canvasW = screenW, canvasH = screenH, zoomOverride = zoom)
                 }
                 IconButton(onClick = { showFullscreen = false }, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
                     Icon(Icons.Filled.Close, "Close", tint = androidx.compose.ui.graphics.Color.White)
                 }
+                ZoomControls(
+                    zoom = if (allBusesMode) allBusesZoom else zoom,
+                    onZoomIn = { if (allBusesMode) allBusesZoom = (allBusesZoom + 1).coerceAtMost(MAP_MAX_ZOOM) else zoom = (zoom + 1).coerceAtMost(MAP_MAX_ZOOM) },
+                    onZoomOut = { if (allBusesMode) allBusesZoom = (allBusesZoom - 1).coerceAtLeast(MAP_MIN_ZOOM) else zoom = (zoom - 1).coerceAtLeast(MAP_MIN_ZOOM) },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp)
+                )
             }
         }
         return
@@ -206,16 +245,22 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
 
                 if (allBusMarkers.isNotEmpty()) {
                     Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                        BusMapView(allBusMarkers, modifier = Modifier.fillMaxWidth().height(380.dp))
+                        BusMapView(allBusMarkers, modifier = Modifier.fillMaxWidth().height(380.dp), zoomOverride = allBusesZoom)
                         IconButton(
                             onClick = { showFullscreen = true },
                             modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
                                 .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
                         ) { Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White) }
+                        ZoomControls(
+                            zoom = allBusesZoom,
+                            onZoomIn = { allBusesZoom = (allBusesZoom + 1).coerceAtMost(MAP_MAX_ZOOM) },
+                            onZoomOut = { allBusesZoom = (allBusesZoom - 1).coerceAtLeast(MAP_MIN_ZOOM) },
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                        )
                     }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                LazyColumn(Modifier.weight(1f)) {
+                LazyColumn(Modifier.weight(1f).navigationBarsPadding()) {
                     items(allFixes) { (b, f) ->
                         val started = f != null && isToday(f.updatedAtMillis)
                         Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
@@ -228,6 +273,12 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (started) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                if (f != null) {
+                                    OutlinedButton(
+                                        onClick = { openInGoogleMaps(context, f.lat, f.lng, b.busNumber) },
+                                        modifier = Modifier.padding(top = 6.dp)
+                                    ) { Icon(Icons.Filled.Map, null, modifier = Modifier.padding(end = 6.dp)); Text("Open in Google Maps") }
+                                }
                             }
                         }
                     }
@@ -280,15 +331,21 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
                 val f = fix!!
                 Box(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     if (route.isNotEmpty()) {
-                        BusRouteMapView(selectedMarker, routeTrail, modifier = Modifier.fillMaxWidth().height(400.dp))
+                        BusRouteMapView(selectedMarker, routeTrail, modifier = Modifier.fillMaxWidth().height(400.dp), zoomOverride = zoom)
                     } else {
-                        BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxWidth().height(400.dp))
+                        BusMapView(listOf(selectedMarker), modifier = Modifier.fillMaxWidth().height(400.dp), zoomOverride = zoom)
                     }
                     IconButton(
                         onClick = { showFullscreen = true },
                         modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
                             .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
                     ) { Icon(Icons.Filled.Fullscreen, "Fullscreen", tint = androidx.compose.ui.graphics.Color.White) }
+                    ZoomControls(
+                        zoom = zoom,
+                        onZoomIn = { zoom = (zoom + 1).coerceAtMost(MAP_MAX_ZOOM) },
+                        onZoomOut = { zoom = (zoom - 1).coerceAtLeast(MAP_MIN_ZOOM) },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
+                    )
                 }
                 Card(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     Column(Modifier.padding(12.dp)) {
@@ -301,7 +358,9 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
                             Text("Estimated time to reach: ~${((distKm / speedKmh) * 60).toInt().coerceAtLeast(1)} min (straight-line estimate, not live traffic)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:${f.lat},${f.lng}?q=${f.lat},${f.lng}"))) }, modifier = Modifier.weight(1f)) { Text("Open in Maps") }
+                            OutlinedButton(onClick = { openInGoogleMaps(context, f.lat, f.lng, selected?.busNumber ?: "Bus") }, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Filled.Map, null, modifier = Modifier.padding(end = 6.dp)); Text("Open in Google Maps")
+                            }
                             val phone = vm.driverPhone
                             if (!phone.isNullOrBlank()) {
                                 Button(onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) }, modifier = Modifier.weight(1f)) {
@@ -316,7 +375,7 @@ fun LiveLocationScreen(onBack: () -> Unit, showHistory: Boolean, restrictToBusId
             if (route.isNotEmpty()) {
                 Text("Today's route (${route.size} points)", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
                 HorizontalDivider()
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize().navigationBarsPadding()) {
                     items(route) { p ->
                         Text(
                             SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(p.updatedAtMillis) + "  ·  %.5f, %.5f".format(p.lat, p.lng),

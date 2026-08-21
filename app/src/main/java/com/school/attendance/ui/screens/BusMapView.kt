@@ -45,7 +45,7 @@ private class CallLinkWebViewClient(private val context: android.content.Context
  * loaded Leaflet.js from a CDN, which some WebView builds silently refused to execute (blank white
  * screen, no error); plain <img> tags and inline script don't have that problem. */
 @Composable
-fun BusMapView(markers: List<MapMarker>, modifier: Modifier = Modifier, canvasW: Int = 640, canvasH: Int = 420) {
+fun BusMapView(markers: List<MapMarker>, modifier: Modifier = Modifier, canvasW: Int = 640, canvasH: Int = 420, zoomOverride: Int? = null) {
     val context = LocalContext.current
     AndroidView(
         modifier = modifier,
@@ -55,14 +55,14 @@ fun BusMapView(markers: List<MapMarker>, modifier: Modifier = Modifier, canvasW:
                 webViewClient = CallLinkWebViewClient(context)
             }
         },
-        update = { webView -> webView.loadDataWithBaseURL("https://localhost/", buildStaticMapHtml(markers, emptyList(), canvasW, canvasH), "text/html", "utf-8", null) }
+        update = { webView -> webView.loadDataWithBaseURL("https://localhost/", buildStaticMapHtml(markers, emptyList(), canvasW, canvasH, zoomOverride), "text/html", "utf-8", null) }
     )
 }
 
 /** Same idea, but for one bus's route: a trail of smaller dots connecting to one highlighted
  * "current position" marker (the newest point), sized to fit the whole route on screen. */
 @Composable
-fun BusRouteMapView(marker: MapMarker, priorPoints: List<Pair<Double, Double>>, modifier: Modifier = Modifier, canvasW: Int = 640, canvasH: Int = 420) {
+fun BusRouteMapView(marker: MapMarker, priorPoints: List<Pair<Double, Double>>, modifier: Modifier = Modifier, canvasW: Int = 640, canvasH: Int = 420, zoomOverride: Int? = null) {
     val context = LocalContext.current
     AndroidView(
         modifier = modifier,
@@ -74,10 +74,15 @@ fun BusRouteMapView(marker: MapMarker, priorPoints: List<Pair<Double, Double>>, 
         },
         update = { webView ->
             val trail = priorPoints.map { MapMarker(marker.busNumber, it.first, it.second, stale = false, color = marker.color) }
-            webView.loadDataWithBaseURL("https://localhost/", buildStaticMapHtml(listOf(marker), trail, canvasW, canvasH), "text/html", "utf-8", null)
+            webView.loadDataWithBaseURL("https://localhost/", buildStaticMapHtml(listOf(marker), trail, canvasW, canvasH, zoomOverride), "text/html", "utf-8", null)
         }
     )
 }
+
+/** Zoom bounds mirroring OSM's own raster tile range — below 3 there's essentially nothing to
+ * see, above 19 the public tile server has no imagery. */
+const val MAP_MIN_ZOOM = 3
+const val MAP_MAX_ZOOM = 19
 
 private const val TILE = 256
 
@@ -103,12 +108,12 @@ private fun pickZoom(points: List<MapMarker>, canvasW: Int, canvasH: Int): Int {
 
 private fun esc(s: String): String = s.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "&quot;")
 
-private fun buildStaticMapHtml(highlighted: List<MapMarker>, trail: List<MapMarker>, canvasW: Int, canvasH: Int): String {
+private fun buildStaticMapHtml(highlighted: List<MapMarker>, trail: List<MapMarker>, canvasW: Int, canvasH: Int, zoomOverride: Int? = null): String {
     val all = trail + highlighted
     if (all.isEmpty()) {
         return "<html><body style='margin:0;background:#e0e0e0;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#666;'>No location yet</body></html>"
     }
-    val zoom = pickZoom(all, canvasW, canvasH)
+    val zoom = (zoomOverride ?: pickZoom(all, canvasW, canvasH)).coerceIn(MAP_MIN_ZOOM, MAP_MAX_ZOOM)
     val centerLat = (all.minOf { it.lat } + all.maxOf { it.lat }) / 2.0
     val centerLng = (all.minOf { it.lng } + all.maxOf { it.lng }) / 2.0
     val centerPx = lonToGlobalPixelX(centerLng, zoom)

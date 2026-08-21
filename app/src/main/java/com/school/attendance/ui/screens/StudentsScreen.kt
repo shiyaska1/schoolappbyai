@@ -62,6 +62,7 @@ import com.school.attendance.data.Student
 import com.school.attendance.util.CsvExport
 import com.school.attendance.util.CsvImport
 import com.school.attendance.util.PhotoUtil
+import com.school.attendance.util.WhatsAppShare
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -245,6 +246,12 @@ private fun StudentDialog(initial: Student, divisions: List<Division>, courses: 
                 }
                 if (initial.username.isNotBlank()) {
                     Text("Login: ${initial.username} / ${initial.password}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                    val whatsapp = guardianWhatsapp.ifBlank { guardianPhone }
+                    if (whatsapp.isNotBlank()) {
+                        TextButton(onClick = {
+                            WhatsAppShare.send(context, whatsapp, "Dear Parent, your ward ${initial.name}'s School App login — Username: ${initial.username}, Password: ${initial.password}. Please keep this safe.")
+                        }, modifier = Modifier.padding(top = 4.dp)) { Text("Share login via WhatsApp") }
+                    }
                 }
 
                 TextButton(onClick = { showMore = !showMore }, modifier = Modifier.padding(top = 8.dp)) { Text(if (showMore) "Hide more details" else "More details (photo, Aadhaar, blood group...)") }
