@@ -3,6 +3,8 @@ package com.school.attendance.ui.screens
 import android.app.Activity
 import android.app.Application
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -54,6 +56,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -195,6 +198,7 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Login Credentials", Icons.Filled.Key, Routes.CREDENTIALS, "Masters"),
         Tile("Exams", Icons.Filled.Quiz, Routes.EXAMS, "Masters"),
         Tile("Grade Scale", Icons.Filled.Grade, Routes.GRADE_SCALE, "Masters"),
+        Tile("Module Access", Icons.Filled.Tune, Routes.MODULE_ACCESS, "Masters"),
         Tile("Settings", Icons.Filled.Settings, Routes.SETTINGS, "Masters"),
         Tile("Mark Attendance", Icons.Filled.CheckCircle, Routes.ATTENDANCE, "Transactions"),
         Tile("Staff Attendance", Icons.Filled.Badge, Routes.TEACHER_ATTENDANCE, "Transactions"),
@@ -224,7 +228,10 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
         Tile("Messages", Icons.Filled.Message, Routes.MESSAGES, "Transactions"),
         Tile("Reports", Icons.Filled.Assessment, Routes.REPORTS, "Reports"),
         Tile("Report Cards", Icons.Filled.Description, Routes.REPORT_CARDS, "Reports")
-    )
+    ).let { list ->
+        val hidden = me?.hiddenModules?.split("|")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+        if (hidden.isEmpty()) list else list.filter { it.route !in hidden }
+    }
     val openSections = remember { mutableStateMapOf<String, Boolean>().apply { SECTION_ORDER.forEach { put(it, false) }; ACCOUNTS_SUB_ORDER.forEach { put(it, false) } } }
     var searchQuery by remember { mutableStateOf("") }
     val matchingTiles = if (searchQuery.isBlank()) null else tiles.filter { it.label.contains(searchQuery, ignoreCase = true) }
@@ -284,6 +291,65 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
             }
             if (isDriver) {
                 var tracking by remember { mutableStateOf(prefs.geoTrackingEnabled) }
+                var lastPushed by remember { mutableStateOf(prefs.lastLocationPushAt) }
+                var pushing by remember { mutableStateOf(false) }
+                var locationError by remember { mutableStateOf<String?>(null) }
+
+                fun beginTracking() {
+                    tracking = true
+                    prefs.geoTrackingEnabled = true
+                    val pm = context.getSystemService(android.os.PowerManager::class.java)
+                    if (pm?.isIgnoringBatteryOptimizations(context.packageName) == false) {
+                        runCatching {
+                            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:${context.packageName}")))
+                        }
+                    }
+                    com.school.attendance.service.LocationTrackingService.start(context)
+                }
+
+                fun pushOnce() {
+                    pushing = true
+                    scope.launch {
+                        val loc = com.school.attendance.util.getCurrentLocation(context)
+                        val teacherId = prefs.loggedInTeacherId
+                        if (loc != null && teacherId > 0) {
+                            val repo = Repository(context)
+                            repo.recordLocationPing(teacherId, loc.latitude, loc.longitude, loc.speed)
+                            val bus = repo.busNumberForDriver(teacherId)
+                            if (bus != null) com.school.attendance.sync.LocationSync.flushQueue(context, teacherId, bus)
+                            lastPushed = prefs.lastLocationPushAt
+                        } else if (loc == null) {
+                            locationError = "Couldn't get a location fix — check GPS is on."
+                        }
+                        pushing = false
+                    }
+                }
+
+                var pendingAction by remember { mutableStateOf<String?>(null) } // "track" or "push"
+                val locationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+                    val granted = results[android.Manifest.permission.ACCESS_FINE_LOCATION] == true || results[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                    if (granted) {
+                        when (pendingAction) { "track" -> beginTracking(); "push" -> pushOnce() }
+                    } else {
+                        locationError = "Location permission is needed to share bus location."
+                        if (pendingAction == "track") { tracking = false; prefs.geoTrackingEnabled = false }
+                    }
+                    pendingAction = null
+                }
+                fun runWithLocationPermission(action: String) {
+                    locationError = null
+                    val needsNotifPermission = action == "track" && android.os.Build.VERSION.SDK_INT >= 33 &&
+                        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    if (com.school.attendance.util.hasLocationPermission(context) && !needsNotifPermission) {
+                        when (action) { "track" -> beginTracking(); "push" -> pushOnce() }
+                    } else {
+                        pendingAction = action
+                        val perms = mutableListOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                        if (needsNotifPermission) perms.add(android.Manifest.permission.POST_NOTIFICATIONS)
+                        locationPermissionLauncher.launch(perms.toTypedArray())
+                    }
+                }
+
                 Row(
                     Modifier.fillMaxWidth()
                         .background(if (tracking) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant)
@@ -299,47 +365,19 @@ fun DashboardScreen(onOpen: (String) -> Unit, onLogout: () -> Unit, vm: Dashboar
                         if (tracking) Text("Turn off below when your run is done.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
                     }
                     Switch(checked = tracking, onCheckedChange = { on ->
-                        tracking = on
-                        prefs.geoTrackingEnabled = on
-                        if (on) {
-                            val pm = context.getSystemService(android.os.PowerManager::class.java)
-                            if (pm?.isIgnoringBatteryOptimizations(context.packageName) == false) {
-                                runCatching {
-                                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:${context.packageName}")))
-                                }
-                            }
-                            com.school.attendance.service.LocationTrackingService.start(context)
-                        } else {
-                            com.school.attendance.service.LocationTrackingService.stop(context)
-                        }
+                        if (on) runWithLocationPermission("track")
+                        else { tracking = false; prefs.geoTrackingEnabled = false; com.school.attendance.service.LocationTrackingService.stop(context) }
                     })
                 }
-                var lastPushed by remember { mutableStateOf(prefs.lastLocationPushAt) }
-                var pushing by remember { mutableStateOf(false) }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         if (lastPushed > 0) "Last location sent: " + java.text.SimpleDateFormat("hh:mm:ss a", java.util.Locale.getDefault()).format(lastPushed)
                         else "No location sent yet",
                         style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)
                     )
-                    OutlinedButton(onClick = {
-                        if (!pushing) {
-                            pushing = true
-                            scope.launch {
-                                val loc = com.school.attendance.util.getCurrentLocation(context)
-                                val teacherId = prefs.loggedInTeacherId
-                                if (loc != null && teacherId > 0) {
-                                    val repo = Repository(context)
-                                    repo.recordLocationPing(teacherId, loc.latitude, loc.longitude, loc.speed)
-                                    val bus = repo.busNumberForDriver(teacherId)
-                                    if (bus != null) com.school.attendance.sync.LocationSync.flushQueue(context, teacherId, bus)
-                                    lastPushed = prefs.lastLocationPushAt
-                                }
-                                pushing = false
-                            }
-                        }
-                    }) { Text(if (pushing) "Pushing..." else "Push location now") }
+                    OutlinedButton(onClick = { if (!pushing) runWithLocationPermission("push") }) { Text(if (pushing) "Pushing..." else "Push location now") }
                 }
+                locationError?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp)) }
             }
             OutlinedTextField(
                 value = searchQuery, onValueChange = { searchQuery = it }, singleLine = true,

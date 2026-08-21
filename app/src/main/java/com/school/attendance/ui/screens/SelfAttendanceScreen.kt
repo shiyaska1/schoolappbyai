@@ -1,6 +1,9 @@
 package com.school.attendance.ui.screens
 
+import android.Manifest
 import android.app.Application
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +36,7 @@ import com.school.attendance.data.AppPrefs
 import com.school.attendance.data.Repository
 import com.school.attendance.util.distanceMeters
 import com.school.attendance.util.getCurrentLocation
+import com.school.attendance.util.hasLocationPermission
 import kotlinx.coroutines.launch
 
 class SelfAttendanceViewModel(app: Application) : AndroidViewModel(app) {
@@ -49,6 +53,31 @@ fun SelfAttendanceScreen(onBack: () -> Unit, vm: SelfAttendanceViewModel = andro
     var message by remember { mutableStateOf<String?>(null) }
     var success by remember { mutableStateOf(false) }
 
+    fun markPresent() {
+        working = true; message = null
+        scope.launch {
+            val loc = getCurrentLocation(context)
+            working = false
+            if (loc == null) {
+                message = "Couldn't get your location — check GPS is on and try again."
+                return@launch
+            }
+            val dist = distanceMeters(loc.latitude, loc.longitude, prefs.schoolLatitude, prefs.schoolLongitude)
+            if (dist > prefs.geoFenceRadiusMeters) {
+                message = "You're %.0f m from the school — out of range.".format(dist)
+            } else {
+                vm.repo.saveSelfAttendance(prefs.loggedInTeacherId, prefs.deviceId, loc.latitude, loc.longitude)
+                success = true
+                message = "Marked present (%.0f m from school).".format(dist)
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+        if (results[Manifest.permission.ACCESS_FINE_LOCATION] == true || results[Manifest.permission.ACCESS_COARSE_LOCATION] == true) markPresent()
+        else message = "Location permission is needed to mark attendance here."
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("My Attendance") }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)) }) { pad ->
         Box(Modifier.fillMaxSize().padding(pad).padding(24.dp), contentAlignment = Alignment.Center) {
@@ -61,23 +90,8 @@ fun SelfAttendanceScreen(onBack: () -> Unit, vm: SelfAttendanceViewModel = andro
                         CircularProgressIndicator()
                     } else {
                         Button(onClick = {
-                            working = true; message = null
-                            scope.launch {
-                                val loc = getCurrentLocation(context)
-                                working = false
-                                if (loc == null) {
-                                    message = "Couldn't get your location — check GPS is on and try again."
-                                    return@launch
-                                }
-                                val dist = distanceMeters(loc.latitude, loc.longitude, prefs.schoolLatitude, prefs.schoolLongitude)
-                                if (dist > prefs.geoFenceRadiusMeters) {
-                                    message = "You're %.0f m from the school — out of range.".format(dist)
-                                } else {
-                                    vm.repo.saveSelfAttendance(prefs.loggedInTeacherId, prefs.deviceId, loc.latitude, loc.longitude)
-                                    success = true
-                                    message = "Marked present (%.0f m from school).".format(dist)
-                                }
-                            }
+                            if (hasLocationPermission(context)) markPresent()
+                            else permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                         }) { Text("Mark present now") }
                     }
                 }

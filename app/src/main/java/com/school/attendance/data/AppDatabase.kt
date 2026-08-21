@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         Receipt::class, Expense::class, Customer::class, Supplier::class, Purchase::class,
         Exam::class, ExamMark::class, GradeBand::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

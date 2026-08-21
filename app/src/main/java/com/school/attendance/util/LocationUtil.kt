@@ -1,13 +1,23 @@
 package com.school.attendance.util
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+
+/** True once the user has granted either fine or coarse location — every location API here
+ * (self-attendance, driver tracking) throws [SecurityException] at runtime if called without it,
+ * regardless of what's declared in the manifest, so this must be checked before each call. */
+fun hasLocationPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
 /** One-shot GPS fix via the plain platform [LocationManager] — no Play Services dependency needed
  * just for "am I near the school". Falls back to the last known fix if a fresh one doesn't arrive

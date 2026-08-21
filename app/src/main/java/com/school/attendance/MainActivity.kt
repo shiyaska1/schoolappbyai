@@ -36,6 +36,7 @@ import com.school.attendance.ui.screens.LoginScreen
 import com.school.attendance.ui.screens.MarkEntryScreen
 import com.school.attendance.ui.screens.MastersScreen
 import com.school.attendance.ui.screens.MessagesScreen
+import com.school.attendance.ui.screens.ModuleAccessScreen
 import com.school.attendance.ui.screens.OutstandingScreen
 import com.school.attendance.ui.screens.ParentDashboardScreen
 import com.school.attendance.ui.screens.PayrollScreen
@@ -111,6 +112,7 @@ object Routes {
     const val REPORT_CARDS = "reportCards"
     const val LEDGER = "ledger"
     const val OUTSTANDING = "outstanding"
+    const val MODULE_ACCESS = "moduleAccess"
 }
 
 @Composable
@@ -199,6 +201,7 @@ fun AppNav() {
         composable(Routes.REPORT_CARDS) { ReportCardScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.LEDGER) { LedgerScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.OUTSTANDING) { OutstandingScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.MODULE_ACCESS) { ModuleAccessScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { nav.popBackStack() },

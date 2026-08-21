@@ -74,7 +74,11 @@ data class Teacher(
     val email: String = "",
     /** Only filled in if different from the main address collected elsewhere. */
     val permanentAddress: String = "",
-    val photoPath: String = ""
+    val photoPath: String = "",
+    /** Pipe-separated [com.school.attendance.Routes] this person's own dashboard tile is hidden
+     * for, set by an admin from Module Access — e.g. a driver who shouldn't see "Reports". Has no
+     * effect for an admin viewing their own admin dashboard (admins always see everything). */
+    val hiddenModules: String = ""
 )
 
 @Entity(tableName = "students")

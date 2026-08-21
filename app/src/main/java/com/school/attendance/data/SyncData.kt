@@ -75,6 +75,7 @@ object AttendanceSync {
                 .put("busNumber", busNumber[it.busId] ?: "")
                 .put("aadharNumber", it.aadharNumber).put("bloodGroup", it.bloodGroup).put("religion", it.religion)
                 .put("secondMobile", it.secondMobile).put("email", it.email).put("permanentAddress", it.permanentAddress)
+                .put("hiddenModules", it.hiddenModules)
         }))
         root.put("students", JSONArray(students.map { s ->
             JSONObject().put("name", s.name).put("rollNumber", s.rollNumber)
@@ -256,7 +257,7 @@ object AttendanceSync {
             phone: String, name: String, designation: String = "", pin: String = "", isAdmin: Boolean = false,
             isTeachingStaff: Boolean = true, monthlySalary: Double = 0.0, busNumber: String = "",
             aadharNumber: String = "", bloodGroup: String = "", religion: String = "",
-            secondMobile: String = "", email: String = "", permanentAddress: String = ""
+            secondMobile: String = "", email: String = "", permanentAddress: String = "", hiddenModules: String = ""
         ): Long {
             if (name.isBlank() && phone.isBlank()) return 0
             val key = teacherKey(phone, name)
@@ -266,7 +267,7 @@ object AttendanceSync {
                     name = name, phone = phone, designation = designation, pin = pin, isAdmin = isAdmin,
                     isTeachingStaff = isTeachingStaff, monthlySalary = monthlySalary, busId = busId(busNumber), updatedAtMillis = now,
                     aadharNumber = aadharNumber, bloodGroup = bloodGroup, religion = religion,
-                    secondMobile = secondMobile, email = email, permanentAddress = permanentAddress
+                    secondMobile = secondMobile, email = email, permanentAddress = permanentAddress, hiddenModules = hiddenModules
                 ))
             }
             teacherIdCache[key] = id
@@ -298,7 +299,8 @@ object AttendanceSync {
                     o.optBoolean("isAdmin"), o.optBoolean("isTeachingStaff", true), o.optDouble("monthlySalary", 0.0),
                     o.optString("busNumber"),
                     o.optString("aadharNumber"), o.optString("bloodGroup"), o.optString("religion"),
-                    o.optString("secondMobile"), o.optString("email"), o.optString("permanentAddress")
+                    o.optString("secondMobile"), o.optString("email"), o.optString("permanentAddress"),
+                    o.optString("hiddenModules")
                 )
             }
         }
